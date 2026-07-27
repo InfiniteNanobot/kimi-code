@@ -247,6 +247,10 @@ export interface SetModelResult {
   readonly model: string;
   readonly providerName?: string | undefined;
 }
+export interface SetSecondaryModelPayload {
+  readonly model: string;
+  readonly defaultEffort?: string;
+}
 export interface CancelPlanPayload {
   readonly id?: string;
 }
@@ -519,6 +523,7 @@ export interface SessionAPI extends AgentAPIWithId {
   reconnectMcpServer: (payload: ReconnectMcpServerPayload) => void;
   generateAgentsMd: (payload: EmptyPayload) => void;
   getSessionWarnings: (payload: EmptyPayload) => readonly SessionWarning[];
+  setSecondaryModel: (payload: SetSecondaryModelPayload) => void;
   waitForBackgroundTasksOnPrint: (payload: EmptyPayload) => void;
   handlePrintMainTurnCompleted: (payload: EmptyPayload) => 'finish' | 'continue';
   addAdditionalDir: (payload: AddAdditionalDirPayload) => AddAdditionalDirResult;

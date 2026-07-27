@@ -23,6 +23,7 @@ import {
   resolveWorkspaceAdditionalDirs,
   resolveConfigValue,
   type BackgroundConfig,
+  type SecondaryModelConfig,
   type WorkspaceAdditionalDirsLoadResult,
 } from '../config';
 import { makeErrorPayload } from '../errors';
@@ -51,6 +52,7 @@ import {
   wrapSubagentModelError,
 } from './subagent-binding';
 import {
+  applySecondaryModelConfig,
   SECONDARY_DERIVED_MODEL_ALIAS,
   secondaryModelPatch,
 } from '../config/secondary-model';
@@ -233,8 +235,21 @@ export class Session {
   private agentsMdWarning: string | undefined;
   private printSteerDeadline: number | undefined;
   private printSteerTurns = 0;
+  /**
+   * The session's live config snapshot. Initialized from `options.config`;
+   * updated in place by {@link setSecondaryModel} so mid-session secondary-model
+   * switches reach the spawn-binding and tool-description readers without
+   * recreating the session.
+   */
+  private runtimeConfig: KimiConfig | undefined;
+
+  /** The session's current config snapshot (see {@link Session.runtimeConfig}). */
+  get kimiConfig(): KimiConfig | undefined {
+    return this.runtimeConfig;
+  }
 
   constructor(public readonly options: SessionOptions) {
+    this.runtimeConfig = options.config;
     // Attach the per-session log sink up front so the constructor's
     // fire-and-forget `loadSkills` / `loadMcpServers` failures (and
     // anything else that races) land in the session log, not just global.
@@ -789,6 +804,47 @@ export class Session {
     return warnings;
   }
 
+  /**
+   * Live-apply a new `[secondary_model]` recipe to this session: the spawn
+   * binding (`subagent-host`), the startup-warning computation, and every live
+   * agent's `kimiConfig` (tool descriptions, loop control) all read the
+   * session snapshot, so a mid-session `/secondary_model` switch takes effect
+   * for the next subagent spawn without recreating the session. The recipe is
+   * expected to be persisted (and the core config reloaded) BEFORE this call —
+   * the provider manager resolves the pointed alias (and the synthesized
+   * derived entry, when patch fields exist) against the core config.
+   */
+  setSecondaryModel(secondary: SecondaryModelConfig): void {
+    const base = this.runtimeConfig;
+    if (base === undefined) {
+      throw new KimiError(
+        ErrorCodes.CONFIG_INVALID,
+        'Cannot set the secondary model: the session has no config.',
+      );
+    }
+    if (secondary.model !== undefined) {
+      try {
+        this.options.providerManager?.resolveProviderConfig(secondary.model);
+      } catch (error) {
+        throw wrapSubagentModelError(error, secondary.model, undefined);
+      }
+    }
+    const models = { ...base.models };
+    delete models[SECONDARY_DERIVED_MODEL_ALIAS];
+    const next = applySecondaryModelConfig({ ...base, models, secondaryModel: secondary });
+    this.runtimeConfig = next;
+    this.secondaryModelWarnings = undefined;
+    for (const [, entry] of this.agents) {
+      if (entry instanceof Agent) {
+        entry.updateKimiConfig(next);
+      } else {
+        // Resume in flight: push the update once the agent materializes (the
+        // rejection is owned by the resume caller, not by this tap).
+        void entry.then(({ agent }) => agent.updateKimiConfig(next)).catch(() => {});
+      }
+    }
+  }
+
   private secondaryModelWarnings: SessionWarning[] | undefined;
 
   /**
@@ -801,7 +857,7 @@ export class Session {
   private computeSecondaryModelWarnings(): SessionWarning[] {
     if (this.secondaryModelWarnings !== undefined) return [...this.secondaryModelWarnings];
     const warnings: SessionWarning[] = [];
-    const secondary = resolveSecondaryModel(this.options.config, this.experimentalFlags);
+    const secondary = resolveSecondaryModel(this.kimiConfig, this.experimentalFlags);
     if (secondary?.model !== undefined) {
       const boundAlias =
         secondaryModelPatch(secondary) === undefined
@@ -1090,7 +1146,7 @@ export class Session {
       type,
       kaos: this.toolKaos.withCwd(cwd),
       toolServices: this.options.toolServices,
-      config: this.options.config,
+      config: this.kimiConfig,
       homedir,
       // Session-level, shared across agents: originals persisted for
       // compression captions live with the session, not the agent.

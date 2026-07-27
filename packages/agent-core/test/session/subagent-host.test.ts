@@ -1842,6 +1842,9 @@ function fakeSession(
       config: sessionOptions?.config,
       providerManager: sessionOptions?.providerManager,
     },
+    get kimiConfig() {
+      return sessionOptions?.config;
+    },
     experimentalFlags: sessionOptions?.experimentalFlags ?? new FlagResolver({}),
     agentCatalog: testAgentCatalog(),
     metadata: {

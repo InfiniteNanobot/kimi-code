@@ -474,7 +474,7 @@ export class SessionSubagentHost {
     modelChoice?: SubagentModelChoice,
   ): SubagentModelBinding {
     const binding = resolveSubagentBinding(
-      this.session.options.config,
+      this.session.kimiConfig,
       this.session.experimentalFlags,
       { modelAlias: parent.config.modelAlias, thinkingEffort: parent.config.thinkingEffort },
       modelChoice ?? profile.modelPreference,

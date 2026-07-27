@@ -118,7 +118,13 @@ export class Agent {
     return this._kaos;
   }
 
-  readonly kimiConfig?: KimiConfig;
+  /**
+   * The session config snapshot this agent reads (loop control, subagent
+   * binding descriptions, ...). Mutable via {@link updateKimiConfig} so the
+   * session can push live config updates (e.g. a `/secondary_model` switch)
+   * to already-instantiated agents.
+   */
+  kimiConfig?: KimiConfig;
   readonly homedir?: string;
   readonly mediaOriginalsDir?: string;
   readonly rpc?: Partial<SDKAgentRPC>;
@@ -440,6 +446,11 @@ export class Agent {
     this.setActiveProfile(profile, brandHome);
     this.updateSystemPromptFromProfile(profile, context, subagentNames);
     this.tools.setActiveTools(profile.tools, profile.disallowedTools);
+  }
+
+  /** Push a refreshed session config snapshot into this agent (see {@link Agent.kimiConfig}). */
+  updateKimiConfig(config: KimiConfig | undefined): void {
+    this.kimiConfig = config;
   }
 
   setActiveProfile(profile: ResolvedAgentProfile, brandHome?: string): void {

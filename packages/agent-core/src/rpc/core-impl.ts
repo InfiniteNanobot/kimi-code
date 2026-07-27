@@ -136,6 +136,7 @@ import type {
   SetPermissionPayload,
   SetPluginEnabledPayload,
   SetPluginMcpServerEnabledPayload,
+  SetSecondaryModelPayload,
   SetThinkingPayload,
   SkillSummary,
   PluginCommandDef,
@@ -1047,6 +1048,14 @@ export class KimiCore implements PromisableMethods<CoreAPI> {
 
   getSessionWarnings({ sessionId, ...payload }: SessionScopedPayload<EmptyPayload>): Promise<readonly SessionWarning[]> {
     return this.sessionApi(sessionId).getSessionWarnings(payload);
+  }
+
+  setSecondaryModel({ sessionId, ...payload }: SessionScopedPayload<SetSecondaryModelPayload>): void {
+    // Pick up the just-persisted `[secondary_model]` recipe (and its
+    // synthesized derived entry) so the session's provider manager can
+    // resolve the pointed alias — same ordering as `setModel`.
+    this.reloadProviderManager();
+    this.sessionApi(sessionId).setSecondaryModel(payload);
   }
 
   waitForBackgroundTasksOnPrint({ sessionId, ...payload }: SessionScopedPayload<EmptyPayload>): Promise<void> {

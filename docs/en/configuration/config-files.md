@@ -194,6 +194,8 @@ The secondary model is a second model pointer next to the primary `default_model
 
 This feature is experimental and disabled by default. Enable it with `KIMI_CODE_EXPERIMENTAL_SECONDARY_MODEL=1`, or the master `KIMI_CODE_EXPERIMENTAL_FLAG=1`. It takes effect in every launch mode, including the interactive TUI.
 
+In the interactive TUI, the [`/secondary_model`](../reference/slash-commands.md) command opens a model picker that writes this section and live-applies it to the current session, so newly spawned subagents bind the new secondary model right away.
+
 | Field | Type | Default | Description |
 | --- | --- | --- | --- |
 | `model` | `string` | — | A model id from your configured `[models]` (any provider, not limited to Kimi models) |

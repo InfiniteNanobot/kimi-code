@@ -194,6 +194,8 @@ display_name = "Kimi for Coding (custom)"
 
 该功能目前是实验功能，默认关闭。通过 `KIMI_CODE_EXPERIMENTAL_SECONDARY_MODEL=1` 启用，或使用 master `KIMI_CODE_EXPERIMENTAL_FLAG=1`。它在包括交互式 TUI 在内的所有启动方式下生效。
 
+在交互式 TUI 中，可以使用 [`/secondary_model`](../reference/slash-commands.md) 命令打开模型选择器来设置该配置：选择后会写入本小节配置，并在当前会话立即生效——之后派生的子 Agent 会直接绑定新的第二模型。
+
 | 字段 | 类型 | 默认值 | 说明 |
 | --- | --- | --- | --- |
 | `model` | `string` | — | 已配置 `[models]` 中的模型 id（不限 kimi 模型，可用任意供应商） |
