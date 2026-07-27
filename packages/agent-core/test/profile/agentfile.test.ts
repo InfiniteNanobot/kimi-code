@@ -427,6 +427,30 @@ describe('SessionAgentProfileCatalog', () => {
     expect(c.get('coder')?.description).toBe('Explicit coder.');
   });
 
+  it('uses the last explicit file when files declare the same profile name', async () => {
+    const { workDir, brandHome, osHome } = await makeLayout();
+    await writeFile(
+      join(workDir, 'first-reviewer.md'),
+      agentFileText({ name: 'reviewer', description: 'First reviewer.' }),
+      'utf-8',
+    );
+    await writeFile(
+      join(workDir, 'last-reviewer.md'),
+      agentFileText({ name: 'reviewer', description: 'Last reviewer.' }),
+      'utf-8',
+    );
+
+    const c = catalog({
+      workDir,
+      brandHomeDir: brandHome,
+      osHomeDir: osHome,
+      explicitFiles: ['first-reviewer.md', 'last-reviewer.md'],
+    });
+    await c.ready;
+
+    expect(c.get('reviewer')?.description).toBe('Last reviewer.');
+  });
+
   it('extends the default delegation set with file-defined agents', async () => {
     const { workDir, brandHome, osHome } = await makeLayout();
     await writeAgent(

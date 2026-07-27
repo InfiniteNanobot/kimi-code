@@ -218,13 +218,17 @@ export class SessionAgentProfileCatalog {
     }
 
     // ── Explicit source (fatal) ──────────────────────────────────────
+    // Match v2's per-source merge semantics: when several explicit files
+    // declare the same profile name, the last file replaces the earlier one.
+    const explicitEntries = new Map<string, FileProfileEntry>();
     for (const file of this.options.explicitFiles ?? []) {
       const path = resolveAgentPath(file, this.options.workDir, this.options.osHomeDir);
       const text = await fs.readFile(path, 'utf-8');
       const definition = parseAgentFileText({ path, source: 'explicit', text });
       this.warnInactivePatterns(definition);
-      entries.push(this.entryFromDefinition(definition, effectiveDefault));
+      explicitEntries.set(definition.name, this.entryFromDefinition(definition, effectiveDefault));
     }
+    entries.push(...explicitEntries.values());
 
     const winners = this.applyFileEntries(entries);
     this.snapshotValue = this.snapshotFromEntries(winners, systemMd);
