@@ -613,9 +613,9 @@ function showSecondaryModelPicker(
 
 /**
  * Persist-first, then live-apply: the synthesized derived entry only exists in
- * the core config after a reload, and `setSecondaryModel` validates the
- * pointed alias against it. No session-only variant — a session-local recipe
- * with patch fields would bind a derived alias the core config cannot resolve.
+ * the core config after a reload. No session-only variant — a session-local
+ * recipe with patch fields would bind a derived alias the core config cannot
+ * resolve.
  */
 async function performSecondaryModelSwitch(
   host: SlashCommandHost,
@@ -631,7 +631,7 @@ async function performSecondaryModelSwitch(
   }
   if (host.session !== undefined) {
     try {
-      await host.session.setSecondaryModel(alias, effort);
+      await host.session.applyPersistedSecondaryModel();
     } catch (error) {
       host.showError(
         `Saved ${displayName} as the secondary model, but failed to apply it to this session: ${formatErrorMessage(error)}`,

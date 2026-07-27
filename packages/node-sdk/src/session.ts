@@ -208,23 +208,15 @@ export class Session {
   }
 
   /**
-   * Live-apply the `[secondary_model]` recipe to this session (subagent model
-   * binding). The recipe should be persisted via `KimiHarness.setConfig` first
-   * so the core config (and its synthesized derived entry) is reloaded before
-   * the session snapshot is updated — mirroring the `/secondary_model` flow.
+   * Live-apply the persisted `[secondary_model]` recipe to this session
+   * (subagent model binding). Persist the recipe via `KimiHarness.setConfig`
+   * first; this reloads the complete recipe and its synthesized derived entry
+   * before updating the session snapshot — mirroring the `/secondary_model`
+   * flow.
    */
-  async setSecondaryModel(model: string, effort?: ThinkingEffort): Promise<void> {
+  async applyPersistedSecondaryModel(): Promise<void> {
     this.ensureOpen();
-    const normalized = normalizeRequiredString(
-      model,
-      'Session secondary model cannot be empty',
-      ErrorCodes.SESSION_MODEL_EMPTY,
-    );
-    await this.rpc.setSecondaryModel({
-      sessionId: this.id,
-      model: normalized,
-      defaultEffort: effort,
-    });
+    await this.rpc.applyPersistedSecondaryModel({ sessionId: this.id });
   }
 
   async setPermission(mode: PermissionMode): Promise<void> {

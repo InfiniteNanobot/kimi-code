@@ -28,7 +28,7 @@ function makeHost(options?: {
 }) {
   const session = options?.withSession === false
     ? undefined
-    : { setSecondaryModel: vi.fn(async () => {}) };
+    : { applyPersistedSecondaryModel: vi.fn(async () => {}) };
   const host = {
     state: {
       appState: {
@@ -105,9 +105,9 @@ describe('handleSecondaryModelCommand', () => {
     expect(host.harness.setConfig).toHaveBeenCalledWith({
       secondaryModel: { model: 'k2', defaultEffort: 'high' },
     });
-    expect(session!.setSecondaryModel).toHaveBeenCalledWith('k2', 'high');
+    expect(session!.applyPersistedSecondaryModel).toHaveBeenCalledWith();
     expect(host.harness.setConfig.mock.invocationCallOrder[0]).toBeLessThan(
-      session!.setSecondaryModel.mock.invocationCallOrder[0]!,
+      session!.applyPersistedSecondaryModel.mock.invocationCallOrder[0]!,
     );
     expect(host.showError).not.toHaveBeenCalled();
   });

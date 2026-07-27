@@ -228,7 +228,7 @@ micro_compaction = false
     expect(reloadedMainAgent?.tools.data().some((tool) => tool.name === 'CreateGoal')).toBe(true);
   });
 
-  it('live-applies the complete persisted secondary recipe when the RPC payload omits effort', async () => {
+  it('live-applies the complete persisted secondary recipe', async () => {
     tmp = await mkdtemp(join(tmpdir(), 'kimi-core-runtime-'));
     const homeDir = join(tmp, 'home');
     const workDir = join(tmp, 'work');
@@ -257,7 +257,7 @@ micro_compaction = false
         maxContextSize: 65_536,
       },
     });
-    await rpc.setSecondaryModel({ sessionId: created.id, model: 'default-mock' });
+    await rpc.applyPersistedSecondaryModel({ sessionId: created.id });
 
     const config = core.sessions.get(created.id)?.getReadyAgent('main')?.kimiConfig;
     expect(config?.secondaryModel).toEqual({

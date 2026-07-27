@@ -100,11 +100,6 @@ export interface SetSessionThinkingRpcInput extends SessionIdRpcInput {
   readonly effort: string;
 }
 
-export interface SetSessionSecondaryModelRpcInput extends SessionIdRpcInput {
-  readonly model: string;
-  readonly defaultEffort?: string;
-}
-
 export interface SetSessionPermissionRpcInput extends SessionIdRpcInput {
   readonly mode: PermissionMode;
 }
@@ -436,13 +431,9 @@ export abstract class SDKRpcClientBase {
     });
   }
 
-  async setSecondaryModel(input: SetSessionSecondaryModelRpcInput): Promise<void> {
+  async applyPersistedSecondaryModel(input: SessionIdRpcInput): Promise<void> {
     const rpc = await this.getRpc();
-    return rpc.setSecondaryModel({
-      sessionId: input.sessionId,
-      model: input.model,
-      defaultEffort: input.defaultEffort,
-    });
+    return rpc.applyPersistedSecondaryModel({ sessionId: input.sessionId });
   }
 
   async setPermission(input: SetSessionPermissionRpcInput): Promise<void> {

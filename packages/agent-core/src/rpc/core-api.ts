@@ -247,10 +247,6 @@ export interface SetModelResult {
   readonly model: string;
   readonly providerName?: string | undefined;
 }
-export interface SetSecondaryModelPayload {
-  readonly model: string;
-  readonly defaultEffort?: string;
-}
 export interface CancelPlanPayload {
   readonly id?: string;
 }
@@ -531,9 +527,7 @@ export interface SessionAPI extends AgentAPIWithId {
 type SessionAPIWithId = WithSessionId<SessionAPI>;
 
 export interface CoreAPI extends SessionAPIWithId {
-  setSecondaryModel: (
-    payload: SetSecondaryModelPayload & { readonly sessionId: string },
-  ) => void;
+  applyPersistedSecondaryModel: (payload: EmptyPayload & { readonly sessionId: string }) => void;
   getCoreInfo: (payload: EmptyPayload) => CoreInfo;
   getExperimentalFeatures: (payload: EmptyPayload) => readonly ExperimentalFeatureState[];
   getKimiConfig: (payload: GetKimiConfigPayload) => KimiConfig;

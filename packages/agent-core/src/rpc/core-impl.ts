@@ -138,7 +138,6 @@ import type {
   SetPermissionPayload,
   SetPluginEnabledPayload,
   SetPluginMcpServerEnabledPayload,
-  SetSecondaryModelPayload,
   SetThinkingPayload,
   SkillSummary,
   PluginCommandDef,
@@ -1077,11 +1076,10 @@ export class KimiCore implements PromisableMethods<CoreAPI> {
     return this.sessionApi(sessionId).getSessionWarnings(payload);
   }
 
-  setSecondaryModel({ sessionId }: SessionScopedPayload<SetSecondaryModelPayload>): void {
+  applyPersistedSecondaryModel({ sessionId }: SessionScopedPayload<EmptyPayload>): void {
     // Apply the same fully resolved snapshot the provider manager reads. In
     // particular, keep every persisted recipe patch and the synthesized
-    // `__secondary__` entry instead of reconstructing the recipe from the
-    // model/default-effort RPC projection.
+    // `__secondary__` entry instead of exposing an incomplete setter payload.
     const config = this.withPrintModeDefaults(this.reloadProviderManager());
     this.requireSession(sessionId).setSecondaryModelConfig(config);
   }
