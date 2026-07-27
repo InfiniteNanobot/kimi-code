@@ -10,6 +10,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Agent, AgentOptions } from '../../src/agent';
 import { trimTrailingOpenToolExchange } from '../../src/agent/context/projector';
 import type { KimiConfig } from '../../src/config';
+import { FlagResolver } from '../../src/flags';
 import { ProviderManager } from '../../src/session/provider-manager';
 import type { ResolvedAgentProfile } from '../../src/profile';
 import type { SDKSessionRPC } from '../../src/rpc';
@@ -722,6 +723,9 @@ describe('Session.setSecondaryModel', () => {
       rpc: createSessionRpc([]),
       skills: { explicitDirs: [join(workDir, 'missing-skills')] },
       providerManager: testProviderManager(),
+      experimentalFlags: new FlagResolver({
+        KIMI_CODE_EXPERIMENTAL_SECONDARY_MODEL: '1',
+      }),
       config,
     });
   }
@@ -747,6 +751,33 @@ describe('Session.setSecondaryModel', () => {
         { profile: testProfile(), parentAgentId: 'main' },
       );
       expect(second.kimiConfig?.secondaryModel).toEqual({ model: MOCK_PROVIDER.model });
+    } finally {
+      await session.close();
+    }
+  });
+
+  it('refreshes collaboration tool descriptions when live-applying a recipe', async () => {
+    const session = await makeSession(SECONDARY_BASE_CONFIG);
+    try {
+      const { agent } = await session.createAgent(
+        { type: 'main', generate: createScriptedGenerate().generate },
+        { profile: { ...testProfile(), tools: ['Agent', 'AgentSwarm'] } },
+      );
+      agent.config.update({ modelAlias: MOCK_PROVIDER.model, thinkingEffort: 'off' });
+
+      const descriptionsBefore = Object.fromEntries(
+        agent.tools.loopTools.map((tool) => [tool.name, tool.description]),
+      );
+      expect(descriptionsBefore['Agent']).not.toContain('Available models');
+      expect(descriptionsBefore['AgentSwarm']).not.toContain('Available models');
+
+      session.setSecondaryModel({ model: MOCK_PROVIDER.model });
+
+      const descriptionsAfter = Object.fromEntries(
+        agent.tools.loopTools.map((tool) => [tool.name, tool.description]),
+      );
+      expect(descriptionsAfter['Agent']).toContain('- secondary: mock-model');
+      expect(descriptionsAfter['AgentSwarm']).toContain('- secondary: mock-model');
     } finally {
       await session.close();
     }

@@ -448,9 +448,12 @@ export class Agent {
     this.tools.setActiveTools(profile.tools, profile.disallowedTools);
   }
 
-  /** Push a refreshed session config snapshot into this agent (see {@link Agent.kimiConfig}). */
+  /** Push a refreshed session config snapshot and rebuild config-dependent builtin tools. */
   updateKimiConfig(config: KimiConfig | undefined): void {
     this.kimiConfig = config;
+    if (this.config.hasProvider) {
+      this.tools.refreshBuiltinTools();
+    }
   }
 
   setActiveProfile(profile: ResolvedAgentProfile, brandHome?: string): void {
