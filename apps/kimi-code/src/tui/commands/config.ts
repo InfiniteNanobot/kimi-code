@@ -2,6 +2,7 @@ import {
   effectiveModelAlias,
   SECONDARY_DERIVED_MODEL_ALIAS,
   type ExperimentalFeatureState,
+  type KimiConfig,
   type ModelAlias,
   type PermissionMode,
   type Session,
@@ -623,8 +624,11 @@ async function performSecondaryModelSwitch(
   effort: ThinkingEffort,
 ): Promise<void> {
   const displayName = modelDisplayName(alias, host.state.appState.availableModels[alias]);
+  let updatedConfig: KimiConfig;
   try {
-    await host.harness.setConfig({ secondaryModel: { model: alias, defaultEffort: effort } });
+    updatedConfig = await host.harness.setConfig({
+      secondaryModel: { model: alias, defaultEffort: effort },
+    });
   } catch (error) {
     host.showError(`Failed to save secondary model: ${formatErrorMessage(error)}`);
     return;
@@ -639,6 +643,7 @@ async function performSecondaryModelSwitch(
       return;
     }
   }
+  host.setAppState({ availableModels: updatedConfig.models ?? {} });
   host.showStatus(
     host.session === undefined
       ? `Secondary model set to ${displayName} with thinking ${effort}; applies to new sessions.`

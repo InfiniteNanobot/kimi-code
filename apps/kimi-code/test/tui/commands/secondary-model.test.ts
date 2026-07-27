@@ -1,3 +1,9 @@
+/**
+ * Scenario: /secondary_model command behavior in the interactive TUI.
+ * Responsibilities: picker filtering, persistence, live apply, and effective-model state refresh.
+ * Wiring: real command and selector with the SDK/session boundaries stubbed by a small host rig.
+ * Run: pnpm -C apps/kimi-code exec vitest run test/tui/commands/secondary-model.test.ts
+ */
 import type { ModelAlias, ThinkingEffort } from '@moonshot-ai/kimi-code-sdk';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -25,22 +31,24 @@ function model(name: string): ModelAlias {
 function makeHost(options?: {
   readonly withSession?: boolean;
   readonly secondaryModel?: { model: string; defaultEffort?: string };
+  readonly persistedModels?: Record<string, ModelAlias>;
 }) {
   const session = options?.withSession === false
     ? undefined
     : { applyPersistedSecondaryModel: vi.fn(async () => {}) };
+  const appState = {
+    availableModels: {
+      k2: model('k2'),
+      cheap: model('cheap'),
+      // The synthesized derived entry must never be selectable.
+      '__secondary__': model('cheap'),
+    } as Record<string, ModelAlias>,
+    availableProviders: {},
+    transcriptEntries: [],
+  };
   const host = {
     state: {
-      appState: {
-        availableModels: {
-          k2: model('k2'),
-          cheap: model('cheap'),
-          // The synthesized derived entry must never be selectable.
-          '__secondary__': model('cheap'),
-        },
-        availableProviders: {},
-        transcriptEntries: [],
-      },
+      appState,
       transcriptEntries: [],
     },
     authFlow: {
@@ -51,9 +59,10 @@ function makeHost(options?: {
         providers: {},
         secondaryModel: options?.secondaryModel,
       })),
-      setConfig: vi.fn(async () => ({ providers: {} })),
+      setConfig: vi.fn(async () => ({ providers: {}, models: options?.persistedModels })),
     },
     session,
+    setAppState: vi.fn((patch) => Object.assign(appState, patch)),
     mountEditorReplacement: vi.fn(),
     restoreEditor: vi.fn(),
     showStatus: vi.fn(),
@@ -110,6 +119,43 @@ describe('handleSecondaryModelCommand', () => {
       session!.applyPersistedSecondaryModel.mock.invocationCallOrder[0]!,
     );
     expect(host.showError).not.toHaveBeenCalled();
+  });
+
+  it('refreshes the effective model map after a live secondary-model switch', async () => {
+    const { host } = makeHost({
+      persistedModels: {
+        k2: model('k2'),
+        cheap: model('cheap'),
+        '__secondary__': model('k2'),
+      },
+    });
+
+    await handleSecondaryModelCommand(host, '');
+    mountedPicker(host).onSelect({ alias: 'k2', thinking: 'high' });
+
+    await vi.waitFor(() => {
+      expect(host.showStatus).toHaveBeenCalled();
+    });
+    expect(host.state.appState.availableModels['__secondary__']?.displayName).toBe('k2');
+  });
+
+  it('keeps the current effective model map when live apply fails', async () => {
+    const { host, session } = makeHost({
+      persistedModels: {
+        k2: model('k2'),
+        cheap: model('cheap'),
+        '__secondary__': model('k2'),
+      },
+    });
+    session!.applyPersistedSecondaryModel.mockRejectedValueOnce(new Error('apply failed'));
+
+    await handleSecondaryModelCommand(host, '');
+    mountedPicker(host).onSelect({ alias: 'k2', thinking: 'high' });
+
+    await vi.waitFor(() => {
+      expect(host.showError).toHaveBeenCalled();
+    });
+    expect(host.state.appState.availableModels['__secondary__']?.displayName).toBe('cheap');
   });
 
   it('persists only when there is no session', async () => {
