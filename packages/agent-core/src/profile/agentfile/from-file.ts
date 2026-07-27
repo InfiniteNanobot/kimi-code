@@ -18,9 +18,18 @@
  * `mcp__github__*` under an `mcp__*` allow. `subagents` stays an allowlist
  * of names on the definition; the catalog links it into the resolved record
  * after merging.
+ *
+ * Ported from the v2 engine (`packages/agent-core-v2/src/app/agentFileCatalog/agentProfileFromFile.ts`)
+ * — keep the two in sync: template variables and profile-mapping semantics
+ * must land in both engines.
  */
 
 import type { ResolvedAgentProfile, SystemPromptContext } from '../types';
+import {
+  ADDITIONAL_DIRS_SECTION_PROSE,
+  SKILLS_SECTION_PROSE,
+  WINDOWS_NOTES,
+} from '../prompt-sections';
 
 import type { AgentFileDefinition } from './types';
 
@@ -32,18 +41,6 @@ function renderTemplateVars(template: string, vars: Record<string, string>): str
     return typeof value === 'string' ? value : match;
   });
 }
-
-const WINDOWS_NOTES =
-  'IMPORTANT: You are on Windows. The Bash tool runs through Git Bash, so use Unix shell syntax inside Bash commands — `/dev/null` not `NUL`, and forward slashes in paths. For file operations, always prefer the built-in tools (Read, Write, Edit, Glob, Grep) over Bash commands — they work reliably across all platforms.';
-
-const ADDITIONAL_DIRS_SECTION_PROSE =
-  'The following directories have been added to the workspace. You can read, write, search, and glob files in these directories as part of your workspace scope.';
-
-const SKILLS_SECTION_PROSE =
-  'Skills are reusable, composable capabilities that enhance your abilities. Each skill is either a self-contained directory with a `SKILL.md` file or a standalone `.md` file that contains instructions, examples, and/or reference material.\n\n' +
-  'Identify the skills relevant to your current task and read the skill file for its instructions; only read further skill details when needed, to conserve the context window.\n\n' +
-  '## Available skills\n\n' +
-  'Skills are grouped by scope (`Project`, `User`, `Extra`, `Built-in`) so you can tell where each came from. When the user refers to "the skill in this project" or "the user-scope skill", use the scope heading to disambiguate. When multiple scopes define a skill with the same name, the more specific scope takes precedence: **Project overrides User overrides Extra overrides Built-in**.';
 
 export function agentFilePromptVars(
   context: SystemPromptContext,

@@ -2,6 +2,9 @@
  * Agent-root resolution primitives: user, project, and configured discovery
  * roots, mirroring the skill scanner's directory conventions
  * (`skills` ↔ `agents`, `.kimi-code` ↔ `.agents`).
+ *
+ * Ported from the v2 engine (`packages/agent-core-v2/src/app/agentFileCatalog/agentRoots.ts`)
+ * — keep the two in sync: discovery-root conventions must land in both engines.
  */
 
 import { promises as fs } from 'node:fs';

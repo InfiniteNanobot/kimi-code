@@ -10,7 +10,10 @@
  * `mcp__<server>__<tool>` name; `mcp__github__*` is the working form for a
  * whole server), and `unknown-tool` (a literal naming no registered or
  * built-in tool, almost always a typo such as `read` instead of `Read`).
- * Mirrors the v2 engine's `findInactiveToolPatterns`.
+ *
+ * Ported from the v2 engine (`findInactiveToolPatterns` in
+ * `packages/agent-core-v2/src/agent/toolPolicy/evaluate.ts`) — keep the two
+ * in sync: warning kinds and matching rules must land in both engines.
  */
 
 import { isMcpToolName } from '../../mcp/tool-naming';

@@ -15,6 +15,11 @@
  * means "any type"), and the builtin default profile's subagent set extends
  * with every file-defined profile so the main agent can delegate to custom
  * agents.
+ *
+ * Semantics mirror the v2 engine's agentFileCatalog domain
+ * (`packages/agent-core-v2/src/app/agentFileCatalog/`, e.g. `agentProfileSource.ts`
+ * and `userFileAgentSource.ts`) — keep merge/override/delegation behavior in
+ * sync across both engines.
  */
 
 import { DEFAULT_AGENT_PROFILES } from '../default';

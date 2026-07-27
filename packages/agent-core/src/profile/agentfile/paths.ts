@@ -4,6 +4,9 @@
  * the directory walker, and the explicit-file source. Callers pick the
  * resolution base: discovery roots resolve against the project root,
  * explicit files against the session workDir.
+ *
+ * Ported from the v2 engine (`packages/agent-core-v2/src/app/agentFileCatalog/paths.ts`)
+ * — keep the two in sync.
  */
 
 import { promises as fs } from 'node:fs';

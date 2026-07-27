@@ -10,6 +10,9 @@
  * `tools` / `subagents` means unrestricted like an omitted field, and list
  * fields accept either a bare comma-separated string or the YAML list form
  * (Claude Code).
+ *
+ * Ported from the v2 engine (`packages/agent-core-v2/src/app/agentFileCatalog/agentFile.ts`)
+ * — keep the two in sync: agent-file format changes must land in both engines.
  */
 
 import { FrontmatterError, parseFrontmatter } from '../../skill/parser';

@@ -3,6 +3,9 @@
  * (`AgentFileDefinition`), scan roots (`AgentFileRoot`) tagged with their
  * source, and the discovery result carrying per-file skip diagnostics.
  * Pure data.
+ *
+ * Ported from the v2 engine (`packages/agent-core-v2/src/app/agentFileCatalog/types.ts`)
+ * — keep the two in sync.
  */
 
 import type { AgentModelPreference } from '../types';

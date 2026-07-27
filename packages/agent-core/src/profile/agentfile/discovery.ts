@@ -12,6 +12,9 @@
  * the returned `skipped` list keeps the full parse-failure detail regardless,
  * and the capping summary names a few suppressed paths so the rest stay
  * findable.
+ *
+ * Ported from the v2 engine (`packages/agent-core-v2/src/app/agentFileCatalog/agentFileDiscovery.ts`)
+ * — keep the two in sync: discovery behavior changes must land in both engines.
  */
 
 import { promises as fs } from 'node:fs';

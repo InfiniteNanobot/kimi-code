@@ -1,4 +1,9 @@
 import { renderPrompt } from '../utils/render-prompt';
+import {
+  ADDITIONAL_DIRS_SECTION_PROSE,
+  SKILLS_SECTION_PROSE,
+  WINDOWS_NOTES,
+} from './prompt-sections';
 import type {
   AgentModelPreference,
   RawAgentProfile,
@@ -165,6 +170,11 @@ function buildTemplateVars(
     KIMI_AGENTS_MD: context.agentsMd ?? '',
     KIMI_SKILLS: tools.includes('Skill') ? skills : '',
     KIMI_ADDITIONAL_DIRS_INFO: context.additionalDirsInfo ?? '',
+    // Shared prose sections (single source: profile/prompt-sections.ts) so the
+    // builtin template and the agent-file renderer can never drift apart.
+    KIMI_WINDOWS_NOTES: WINDOWS_NOTES,
+    KIMI_ADDITIONAL_DIRS_SECTION_PROSE: ADDITIONAL_DIRS_SECTION_PROSE,
+    KIMI_SKILLS_SECTION_PROSE: SKILLS_SECTION_PROSE,
     ROLE_ADDITIONAL:
       context.roleAdditional ?? promptVars['ROLE_ADDITIONAL'] ?? promptVars['roleAdditional'] ?? '',
   };

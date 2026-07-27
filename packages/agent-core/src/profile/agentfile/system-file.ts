@@ -13,6 +13,9 @@
  * definition; a read failure degrades to `warn` instead of rejecting,
  * matching the directory-source policy that a transient fs error must never
  * poison a session.
+ *
+ * Ported from the v2 engine (`packages/agent-core-v2/src/app/agentFileCatalog/systemFile.ts`)
+ * — keep the two in sync: SYSTEM.md semantics must land in both engines.
  */
 
 import { promises as fs } from 'node:fs';
