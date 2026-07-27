@@ -67,6 +67,7 @@ function isKnownBuiltinToolName(name: string): boolean {
 }
 
 interface FileProfileEntry {
+  readonly kind: 'file' | 'system-prompt';
   readonly definition: AgentFileDefinition;
   readonly profile: ResolvedAgentProfile;
   readonly priority: number;
@@ -249,6 +250,7 @@ export class SessionAgentProfileCatalog {
     effectiveDefault: ResolvedAgentProfile,
   ): FileProfileEntry {
     return {
+      kind: 'system-prompt',
       definition,
       profile: effectiveDefault,
       priority: SOURCE_PRIORITY['user'],
@@ -262,6 +264,7 @@ export class SessionAgentProfileCatalog {
     effectiveDefault: ResolvedAgentProfile,
   ): FileProfileEntry {
     return {
+      kind: 'file',
       definition,
       profile: agentProfileFromFile(definition, effectiveDefault.tools, (context) =>
         effectiveDefault.systemPrompt(context),
@@ -295,24 +298,31 @@ export class SessionAgentProfileCatalog {
       }
     }
 
-    // Link the file profiles' delegation allowlists against the merged set.
+    // Link regular file profiles' delegation allowlists against the merged
+    // set. SYSTEM.md is only a prompt overlay: treating its missing
+    // frontmatter as an unrestricted allowlist would let `agent` delegate to
+    // itself instead of preserving the builtin delegation policy.
     for (const winner of winners) {
+      if (winner.kind === 'system-prompt') continue;
       winner.profile.subagents = this.linkSubagentAllowlist(winner.definition, merged, warn);
     }
 
-    // Extend the builtin default's delegation set with every file-defined
-    // profile so the main agent can delegate to custom agents. (A file
-    // profile that replaced the default carries its own allowlist instead.)
-    const defaultIsBuiltin = !winners.some(
+    // Extend the builtin default — or its SYSTEM.md prompt-overlay variant —
+    // with every regular file profile. A real agent file that replaced the
+    // default carries its own allowlist instead.
+    const defaultWinner = winners.find(
       (winner) => winner.definition.name === DEFAULT_AGENT_PROFILE_NAME,
     );
-    if (defaultIsBuiltin && winners.length > 0) {
-      const builtinDefault = this.getDefault();
+    const defaultKeepsBuiltinDelegation =
+      defaultWinner === undefined || defaultWinner.kind === 'system-prompt';
+    const fileWinners = winners.filter((winner) => winner.kind === 'file');
+    if (defaultKeepsBuiltinDelegation && fileWinners.length > 0) {
+      const defaultProfile = merged.get(DEFAULT_AGENT_PROFILE_NAME) ?? this.getDefault();
       const fileRecord: Record<string, ResolvedAgentProfile> = {};
-      for (const winner of winners) fileRecord[winner.definition.name] = winner.profile;
+      for (const winner of fileWinners) fileRecord[winner.definition.name] = winner.profile;
       merged.set(DEFAULT_AGENT_PROFILE_NAME, {
-        ...builtinDefault,
-        subagents: { ...builtinDefault.subagents, ...fileRecord },
+        ...defaultProfile,
+        subagents: { ...defaultProfile.subagents, ...fileRecord },
       });
     }
 

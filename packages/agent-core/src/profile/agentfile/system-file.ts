@@ -4,8 +4,8 @@
  * `<brandHome>/SYSTEM.md` (default `~/.kimi-code/SYSTEM.md`, moves with
  * `KIMI_CODE_HOME`) permanently replaces the builtin default profile's system
  * prompt while the file exists and is non-empty. Only the prompt is replaced
- * — tools and description are copied from the builtin default — and explicit
- * intent still wins: higher-priority sources (project `agent.md`,
+ * — every other profile capability comes from the builtin default — and
+ * explicit intent still wins: higher-priority sources (project `agent.md`,
  * `--agent-file`) override it, and binding a different profile ignores it.
  * The body is a prompt template rendered against the agent-file variable
  * table: `${var}` placeholders substitute live context, and `${base_prompt}`
@@ -56,7 +56,7 @@ export async function loadSystemMdDefinition(
 
 /**
  * Builds the SYSTEM.md profile variant: the builtin default with its system
- * prompt replaced by the file body. Description and tools come from the
+ * prompt replaced by the file body. Every other capability comes from the
  * builtin default.
  */
 export function systemMdProfile(
@@ -77,6 +77,8 @@ export function systemMdProfile(
         ? undefined
         : [...builtinDefault.disallowedTools],
     whenToUse: builtinDefault.whenToUse,
+    subagents:
+      builtinDefault.subagents === undefined ? undefined : { ...builtinDefault.subagents },
     modelPreference: builtinDefault.modelPreference,
   };
 }

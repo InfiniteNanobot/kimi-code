@@ -343,8 +343,44 @@ describe('SessionAgentProfileCatalog', () => {
     const c = catalog({ workDir, brandHomeDir: brandHome, osHomeDir: osHome });
     await c.ready;
     expect(c.getDefault().systemPrompt(promptContext)).toBe('Custom system for Linux.');
-    // Only the prompt changed; tools and description stay builtin.
+    // Only the prompt changed; capabilities and description stay builtin.
     expect(c.getDefault().tools).toEqual(DEFAULT_AGENT_PROFILES['agent']!.tools);
+    expect(Object.keys(c.delegatableSubagents('agent'))).toEqual(
+      Object.keys(DEFAULT_AGENT_PROFILES['agent']!.subagents ?? {}),
+    );
+    expect(c.delegatableSubagents('agent')).not.toHaveProperty('agent');
+  });
+
+  it('extends SYSTEM.md delegation with custom agents without allowing self-delegation', async () => {
+    const { workDir, brandHome, osHome } = await makeLayout();
+    await writeFile(join(brandHome, 'SYSTEM.md'), 'Custom system.', 'utf-8');
+    await writeAgent(
+      join(workDir, '.kimi-code', 'agents'),
+      'reviewer.md',
+      agentFileText({ description: 'Reviews code.' }),
+    );
+
+    const c = catalog({ workDir, brandHomeDir: brandHome, osHomeDir: osHome });
+    await c.ready;
+    const expectedNames = [
+      ...Object.keys(DEFAULT_AGENT_PROFILES['agent']!.subagents ?? {}),
+      'reviewer',
+    ];
+    expect(Object.keys(c.delegatableSubagents('agent'))).toEqual(expectedNames);
+    expect(c.delegatableSubagents('agent')).not.toHaveProperty('agent');
+
+    const snapshot = c.snapshot();
+    expect(snapshot).toBeDefined();
+    const restoredLayout = await makeLayout();
+    const restored = catalog({
+      workDir: restoredLayout.workDir,
+      brandHomeDir: restoredLayout.brandHome,
+      osHomeDir: restoredLayout.osHome,
+    });
+    await restored.ready;
+    restored.restoreSnapshot(snapshot!);
+    expect(Object.keys(restored.delegatableSubagents('agent'))).toEqual(expectedNames);
+    expect(restored.delegatableSubagents('agent')).not.toHaveProperty('agent');
   });
 
   it('lets a project agent.md win over SYSTEM.md', async () => {
