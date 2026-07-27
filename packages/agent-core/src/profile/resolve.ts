@@ -1,5 +1,6 @@
 import { renderPrompt } from '../utils/render-prompt';
 import type {
+  AgentModelPreference,
   RawAgentProfile,
   RawSubagentProfile,
   ResolvedAgentProfile,
@@ -15,6 +16,7 @@ interface MergedAgentProfile {
   readonly tools: string[];
   readonly whenToUse?: string | undefined;
   readonly subagents?: Record<string, RawSubagentProfile> | undefined;
+  readonly modelPreference?: AgentModelPreference | undefined;
 }
 
 /**
@@ -100,6 +102,7 @@ function resolveMergedProfile(
     tools: profile.tools !== undefined ? [...profile.tools] : [...(parent?.tools ?? [])],
     whenToUse: profile.whenToUse ?? parent?.whenToUse,
     subagents: cloneSubagents(profile.subagents),
+    modelPreference: profile.modelPreference ?? parent?.modelPreference,
   };
 
   cache.set(profile.name, merged);
@@ -113,6 +116,7 @@ function toResolvedProfile(merged: MergedAgentProfile): ResolvedAgentProfile {
     systemPrompt: createSystemPromptRenderer(merged),
     tools: [...merged.tools],
     whenToUse: merged.whenToUse,
+    modelPreference: merged.modelPreference,
   };
 }
 

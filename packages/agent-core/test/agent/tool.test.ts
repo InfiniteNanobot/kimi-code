@@ -125,6 +125,7 @@ describe('Agent tools', () => {
         completion,
       }),
       resume: vi.fn(),
+      delegatableSubagents: vi.fn(() => ({})),
     } as unknown as SessionSubagentHost;
     const ctx = testAgent({ subagentHost });
     ctx.configure({ tools: ['Agent'] });
@@ -259,8 +260,39 @@ describe('Agent tools', () => {
     expect(managedBash!.description).toContain('run_in_background=true');
   });
 
+  it('removes denied exact tool names from the active set', () => {
+    const ctx = testAgent();
+    ctx.configure();
+    ctx.agent.tools.setActiveTools(['Read', 'Bash', 'Grep'], ['Bash']);
+
+    const names = ctx.agent.tools.loopTools.map((tool) => tool.name);
+    expect(names).not.toContain('Bash');
+    expect(names).toContain('Read');
+    expect(names).toContain('Grep');
+    expect(ctx.agent.tools.data().find((info) => info.name === 'Bash')?.active).toBe(false);
+  });
+
+  it('applies a profile disallowedTools denylist through useProfile', () => {
+    const ctx = testAgent();
+    ctx.configure();
+    ctx.agent.useProfile({
+      name: 'restricted',
+      systemPrompt: () => 'sys',
+      tools: ['Read', 'Write', 'Edit', 'Bash', 'Grep'],
+      disallowedTools: ['Write', 'Edit'],
+    });
+
+    const names = ctx.agent.tools.loopTools.map((tool) => tool.name);
+    expect(names).toContain('Read');
+    expect(names).toContain('Bash');
+    expect(names).not.toContain('Write');
+    expect(names).not.toContain('Edit');
+  });
+
   it('exposes AgentSwarm when a subagent host is available', () => {
-    const subagentHost = {} as unknown as SessionSubagentHost;
+    const subagentHost = {
+      delegatableSubagents: vi.fn(() => ({})),
+    } as unknown as SessionSubagentHost;
 
     const ctx = testAgent({
       subagentHost,

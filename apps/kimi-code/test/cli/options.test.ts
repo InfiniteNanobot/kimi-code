@@ -453,16 +453,13 @@ describe('CLI options parsing', () => {
       const opts = parse(['--agent', 'reviewer']);
       expect(() => validateOptions(opts)).toThrow(OptionConflictError);
       expect(() => validateOptions(opts)).toThrow(
-        '--agent/--agent-file are only available with the v2 engine',
+        '--agent/--agent-file are only available in print mode (kimi -p).',
       );
     });
 
-    it('rejects the flags in prompt mode without the v2 engine flag', () => {
+    it('accepts the flags in prompt mode without the v2 engine flag', () => {
       const opts = parse(['-p', 'hi', '--agent-file', 'a.md']);
-      expect(() => validateOptions(opts, {})).toThrow(OptionConflictError);
-      expect(() => validateOptions(opts, {})).toThrow(
-        '--agent/--agent-file are only available with the v2 engine',
-      );
+      expect(validateOptions(opts, {}).uiMode).toBe('print');
     });
 
     it('accepts the flags in prompt mode with the v2 engine flag', () => {

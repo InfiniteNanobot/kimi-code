@@ -1,5 +1,3 @@
-import { isKimiV2Enabled } from './experimental-v2';
-
 export type UIMode = 'shell' | 'print';
 export type PromptOutputFormat = 'text' | 'stream-json';
 
@@ -101,10 +99,10 @@ export function validateOptions(
   }
   if (
     (opts.agent !== undefined || opts.agentFiles.length > 0) &&
-    (!promptMode || !isKimiV2Enabled(env))
+    !promptMode
   ) {
     throw new OptionConflictError(
-      '--agent/--agent-file are only available with the v2 engine (kimi -p with KIMI_CODE_EXPERIMENTAL_FLAG=1).',
+      '--agent/--agent-file are only available in print mode (kimi -p).',
     );
   }
   if (promptMode && opts.session === '') {

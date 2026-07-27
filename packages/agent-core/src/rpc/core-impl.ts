@@ -378,6 +378,12 @@ export class KimiCore implements PromisableMethods<CoreAPI> {
       hooks: [...(config.hooks ?? []), ...this.plugins.enabledHooks()],
       permissionRules: config.permission?.rules,
       skills: this.resolveSessionSkillConfig(config),
+      agents: {
+        userHomeDir: this.userHomeDir,
+        explicitFiles: options.agentFiles,
+        extraDirs: config.extraAgentDirs,
+        profileName: options.agentProfile,
+      },
       mcpConfig,
       experimentalFlags: this.experimentalFlags,
       imageLimits: this.imageLimits,
@@ -529,6 +535,10 @@ export class KimiCore implements PromisableMethods<CoreAPI> {
       hooks: [...(config.hooks ?? []), ...this.plugins.enabledHooks()],
       permissionRules: config.permission?.rules,
       skills: this.resolveSessionSkillConfig(config),
+      agents: {
+        userHomeDir: this.userHomeDir,
+        extraDirs: config.extraAgentDirs,
+      },
       mcpConfig,
       experimentalFlags: this.experimentalFlags,
       imageLimits: this.imageLimits,

@@ -371,6 +371,8 @@ async function resolvePromptSession(
     model,
     permission: 'auto',
     additionalDirs: opts.addDirs?.length ? opts.addDirs : undefined,
+    agentProfile: opts.agent,
+    agentFiles: opts.agentFiles.length > 0 ? opts.agentFiles : undefined,
     drainAgentTasksOnStop: true,
   });
   installHeadlessHandlers(session);

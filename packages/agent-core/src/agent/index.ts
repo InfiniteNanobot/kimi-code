@@ -438,7 +438,7 @@ export class Agent {
   ): void {
     this.setActiveProfile(profile, brandHome);
     this.updateSystemPromptFromProfile(profile, context);
-    this.tools.setActiveTools(profile.tools);
+    this.tools.setActiveTools(profile.tools, profile.disallowedTools);
   }
 
   setActiveProfile(profile: ResolvedAgentProfile, brandHome?: string): void {
