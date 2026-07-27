@@ -454,6 +454,27 @@ describe('CLI options parsing', () => {
       );
     });
 
+    it('rejects --agent-file with --session', () => {
+      const opts = parse(['-p', 'hi', '--agent-file', 'a.md', '--session', 'ses_123']);
+      expect(() => validateOptions(opts)).toThrow(OptionConflictError);
+      expect(() => validateOptions(opts)).toThrow(
+        'Cannot combine --agent-file with --session/--continue',
+      );
+    });
+
+    it('rejects --agent-file with --continue', () => {
+      const opts = parse(['-p', 'hi', '--agent-file', 'a.md', '--continue']);
+      expect(() => validateOptions(opts)).toThrow(OptionConflictError);
+      expect(() => validateOptions(opts)).toThrow(
+        'Cannot combine --agent-file with --session/--continue',
+      );
+    });
+
+    it('allows --agent with --session (re-selecting the bound profile)', () => {
+      const opts = parse(['-p', 'hi', '--agent', 'reviewer', '--session', 'ses_123']);
+      expect(validateOptions(opts, {}).uiMode).toBe('print');
+    });
+
     it('rejects empty agent values', () => {
       const opts = parse(['-p', 'hi', '--agent', '   ']);
       expect(() => validateOptions(opts)).toThrow(OptionConflictError);

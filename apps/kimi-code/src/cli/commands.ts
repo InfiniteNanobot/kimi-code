@@ -90,7 +90,7 @@ export function createProgram(
     .addOption(
       new Option(
         '--agent-file <path>',
-        'Load an agent definition from a Markdown file and select it for this print-mode invocation on either engine.',
+        'Load an agent definition from a Markdown file and select it for this print-mode invocation on either engine. Only valid when starting a new session — cannot be combined with --session/--continue.',
       )
         .argParser((value: string, previous: string[] | undefined) => {
           if ((previous?.length ?? 0) > 0) {
