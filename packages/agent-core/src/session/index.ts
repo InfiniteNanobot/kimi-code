@@ -71,6 +71,7 @@ import type { ToolServices } from '../tools/support/services';
 import { FlagResolver, type ExperimentalFlagResolver } from '../flags';
 import { ImageLimits } from '../tools/support/image-limits';
 import { abortError } from '../utils/abort';
+import { resolveMainAgentProfile } from './main-agent-profile';
 
 export interface SessionOptions {
   readonly kaos: Kaos;
@@ -128,6 +129,8 @@ export interface SessionAgentCatalogConfig {
   readonly explicitFiles?: readonly string[];
   readonly extraDirs?: readonly string[];
   readonly profileName?: string;
+  /** Already-loaded catalog prepared before a persistent session is created. */
+  readonly catalog?: SessionAgentProfileCatalog;
 }
 
 export interface AgentMeta {
@@ -288,16 +291,18 @@ export class Session {
     this.mcp.onStatusChange((entry) => {
       this.onMcpServerStatusChange(entry);
     });
-    this.agentCatalog = new SessionAgentProfileCatalog({
-      workDir: options.kaos.getcwd(),
-      brandHomeDir: options.kimiHomeDir ?? join(homedir(), '.kimi-code'),
-      osHomeDir: options.agents?.userHomeDir ?? homedir(),
-      extraDirs: options.agents?.extraDirs ?? options.config?.extraAgentDirs,
-      explicitFiles: options.agents?.explicitFiles,
-      warn: (message, error) => {
-        this.log.warn(message, error === undefined ? undefined : { error });
-      },
-    });
+    this.agentCatalog =
+      options.agents?.catalog ??
+      new SessionAgentProfileCatalog({
+        workDir: options.kaos.getcwd(),
+        brandHomeDir: options.kimiHomeDir ?? join(homedir(), '.kimi-code'),
+        osHomeDir: options.agents?.userHomeDir ?? homedir(),
+        extraDirs: options.agents?.extraDirs ?? options.config?.extraAgentDirs,
+        explicitFiles: options.agents?.explicitFiles,
+        warn: (message, error) => {
+          this.log.warn(message, error === undefined ? undefined : { error });
+        },
+      });
     this.skillsReady = this.loadSkills()
       .catch((error: unknown) => {
         this.log.error('skills load failed', error);
@@ -406,21 +411,10 @@ export class Session {
     // sees file-defined profiles.
     await this.skillsReady;
     this.agentProfileSnapshot = this.agentCatalog.snapshot();
-    const profileName = this.options.agents?.profileName;
-    const profile =
-      profileName === undefined
-        ? this.agentCatalog.getDefault()
-        : this.agentCatalog.get(profileName);
-    if (profile === undefined) {
-      const available = this.agentCatalog
-        .list()
-        .map((candidate) => candidate.name)
-        .join(', ');
-      throw new KimiError(
-        ErrorCodes.AGENT_NOT_FOUND,
-        `Agent profile "${profileName}" was not found. Available profiles: ${available}`,
-      );
-    }
+    const profile = resolveMainAgentProfile(
+      this.agentCatalog,
+      this.options.agents?.profileName,
+    );
     const { agent } = await this.createAgent({ type: 'main' }, {
       profile,
     });

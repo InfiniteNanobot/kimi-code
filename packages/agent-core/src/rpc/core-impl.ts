@@ -49,8 +49,10 @@ import {
   type BeginAuthorizationResult,
   type SessionMcpConfig,
 } from '../mcp';
+import { SessionAgentProfileCatalog } from '../profile';
 import { Session, type SessionMeta, type SessionSkillConfig } from '../session';
 import { exportSessionDirectory } from '../session/export';
+import { resolveMainAgentProfile } from '../session/main-agent-profile';
 import {
   registerBuiltinSkills,
   SessionSkillRegistry,
@@ -336,6 +338,32 @@ export class KimiCore implements PromisableMethods<CoreAPI> {
       ...localWorkspaceDirs.additionalDirs,
       ...callerAdditionalDirs,
     ]);
+    const agentCatalogWarnings: Array<{ readonly message: string; readonly error?: unknown }> = [];
+    const reportAgentCatalogWarnings = (logger: Logger): void => {
+      for (const warning of agentCatalogWarnings) {
+        logger.warn(
+          warning.message,
+          warning.error === undefined ? undefined : { error: warning.error },
+        );
+      }
+    };
+    const agentCatalog = new SessionAgentProfileCatalog({
+      workDir,
+      brandHomeDir: this.homeDir,
+      osHomeDir: this.userHomeDir,
+      extraDirs: config.extraAgentDirs,
+      explicitFiles: options.agentFiles,
+      warn: (message, error) => {
+        agentCatalogWarnings.push({ message, error });
+      },
+    });
+    try {
+      await agentCatalog.ready;
+      resolveMainAgentProfile(agentCatalog, options.agentProfile);
+    } catch (error) {
+      reportAgentCatalogWarnings(log.createChild({ sessionId: id }));
+      throw error;
+    }
     const summary = await this.sessionStore.create({
       id,
       workDir,
@@ -380,9 +408,7 @@ export class KimiCore implements PromisableMethods<CoreAPI> {
       permissionRules: config.permission?.rules,
       skills: this.resolveSessionSkillConfig(config),
       agents: {
-        userHomeDir: this.userHomeDir,
-        explicitFiles: options.agentFiles,
-        extraDirs: config.extraAgentDirs,
+        catalog: agentCatalog,
         profileName: options.agentProfile,
       },
       mcpConfig,
@@ -396,6 +422,7 @@ export class KimiCore implements PromisableMethods<CoreAPI> {
       drainAgentTasksOnStop: options.drainAgentTasksOnStop,
     });
     try {
+      reportAgentCatalogWarnings(session.log);
       session.metadata = {
         ...session.metadata,
         createdAt: new Date(summary.createdAt).toISOString(),

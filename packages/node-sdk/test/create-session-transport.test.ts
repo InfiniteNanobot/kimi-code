@@ -570,6 +570,82 @@ effort = "medium"
     }
   });
 
+  it('does not persist a session record when the requested agent profile is missing', async () => {
+    const homeDir = await makeTempDir();
+    const workDir = await makeTempDir();
+    const harness = createKimiHarness({
+      identity: TEST_IDENTITY,
+      homeDir,
+    });
+
+    try {
+      await expect(
+        harness.createSession({
+          id: 'ses_missing_agent_profile',
+          workDir,
+          agentProfile: 'missing-agent',
+        }),
+      ).rejects.toMatchObject({
+        name: 'KimiError',
+        code: 'agent.not_found',
+      });
+      expect(await harness.listSessions({ workDir })).toEqual([]);
+      expect(existsSync(join(homeDir, 'session_index.jsonl'))).toBe(false);
+    } finally {
+      await harness.close();
+    }
+  });
+
+  it('allows the session ID to be reused after agent profile selection fails', async () => {
+    const homeDir = await makeTempDir();
+    const workDir = await makeTempDir();
+    const harness = createKimiHarness({
+      identity: TEST_IDENTITY,
+      homeDir,
+    });
+
+    try {
+      await expect(
+        harness.createSession({
+          id: 'ses_reusable_after_missing_profile',
+          workDir,
+          agentProfile: 'missing-agent',
+        }),
+      ).rejects.toMatchObject({ code: 'agent.not_found' });
+
+      await expect(
+        harness.createSession({
+          id: 'ses_reusable_after_missing_profile',
+          workDir,
+        }),
+      ).resolves.toMatchObject({ id: 'ses_reusable_after_missing_profile' });
+    } finally {
+      await harness.close();
+    }
+  });
+
+  it('does not persist a session record when an explicit agent file cannot be loaded', async () => {
+    const homeDir = await makeTempDir();
+    const workDir = await makeTempDir();
+    const harness = createKimiHarness({
+      identity: TEST_IDENTITY,
+      homeDir,
+    });
+
+    try {
+      await expect(
+        harness.createSession({
+          id: 'ses_missing_explicit_agent_file',
+          workDir,
+          agentFiles: [join(workDir, 'missing-agent.md')],
+        }),
+      ).rejects.toThrow(/missing-agent\.md/);
+      expect(await harness.listSessions({ workDir })).toEqual([]);
+    } finally {
+      await harness.close();
+    }
+  });
+
   it('closes active runtime handles through closeSession, session.close, and close', async () => {
     const homeDir = await makeTempDir();
     const workDir = await makeTempDir();
