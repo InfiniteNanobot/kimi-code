@@ -699,7 +699,7 @@ describe('AgentAPI.startBtw', () => {
   });
 });
 
-describe('Session.setSecondaryModel', () => {
+describe('Session secondary-model live config', () => {
   const SECONDARY_BASE_CONFIG: KimiConfig = {
     providers: {
       test: { type: MOCK_PROVIDER.type, apiKey: MOCK_PROVIDER.apiKey },
@@ -711,6 +711,21 @@ describe('Session.setSecondaryModel', () => {
         maxContextSize: 1_000_000,
       },
     },
+  };
+  const SECONDARY_POINTER_CONFIG: KimiConfig = {
+    ...SECONDARY_BASE_CONFIG,
+    secondaryModel: { model: MOCK_PROVIDER.model },
+  };
+  const SECONDARY_PATCHED_CONFIG: KimiConfig = {
+    ...SECONDARY_BASE_CONFIG,
+    models: {
+      ...SECONDARY_BASE_CONFIG.models,
+      __secondary__: {
+        ...SECONDARY_BASE_CONFIG.models![MOCK_PROVIDER.model]!,
+        overrides: { defaultEffort: 'low' },
+      },
+    },
+    secondaryModel: { model: MOCK_PROVIDER.model, defaultEffort: 'low' },
   };
 
   async function makeSession(config?: KimiConfig): Promise<Session> {
@@ -738,7 +753,7 @@ describe('Session.setSecondaryModel', () => {
         { profile: testProfile() },
       );
 
-      session.setSecondaryModel({ model: MOCK_PROVIDER.model });
+      session.setSecondaryModelConfig(SECONDARY_POINTER_CONFIG);
 
       expect(session.kimiConfig?.secondaryModel).toEqual({ model: MOCK_PROVIDER.model });
       expect(agent.kimiConfig?.secondaryModel).toEqual({ model: MOCK_PROVIDER.model });
@@ -771,7 +786,7 @@ describe('Session.setSecondaryModel', () => {
       expect(descriptionsBefore['Agent']).not.toContain('Available models');
       expect(descriptionsBefore['AgentSwarm']).not.toContain('Available models');
 
-      session.setSecondaryModel({ model: MOCK_PROVIDER.model });
+      session.setSecondaryModelConfig(SECONDARY_POINTER_CONFIG);
 
       const descriptionsAfter = Object.fromEntries(
         agent.tools.loopTools.map((tool) => [tool.name, tool.description]),
@@ -783,16 +798,33 @@ describe('Session.setSecondaryModel', () => {
     }
   });
 
-  it('synthesizes the derived entry for patch recipes and drops it for pointer-only ones', async () => {
+  it('replaces a patched runtime snapshot with a pointer-only runtime snapshot', async () => {
     const session = await makeSession(SECONDARY_BASE_CONFIG);
     try {
-      session.setSecondaryModel({ model: MOCK_PROVIDER.model, defaultEffort: 'low' });
+      session.setSecondaryModelConfig(SECONDARY_PATCHED_CONFIG);
       const derived = session.kimiConfig?.models?.['__secondary__'];
       expect(derived).toBeDefined();
       expect(derived?.overrides?.defaultEffort).toBe('low');
 
-      session.setSecondaryModel({ model: MOCK_PROVIDER.model });
+      session.setSecondaryModelConfig(SECONDARY_POINTER_CONFIG);
       expect(session.kimiConfig?.models?.['__secondary__']).toBeUndefined();
+    } finally {
+      await session.close();
+    }
+  });
+
+  it('keeps unrelated session settings when applying a secondary-model config', async () => {
+    const session = await makeSession({
+      ...SECONDARY_BASE_CONFIG,
+      loopControl: { maxStepsPerTurn: 7 },
+    });
+    try {
+      session.setSecondaryModelConfig({
+        ...SECONDARY_POINTER_CONFIG,
+        loopControl: { maxStepsPerTurn: 99 },
+      });
+
+      expect(session.kimiConfig?.loopControl?.maxStepsPerTurn).toBe(7);
     } finally {
       await session.close();
     }
@@ -801,10 +833,22 @@ describe('Session.setSecondaryModel', () => {
   it('rejects a dangling pointer with the wrapped secondary-model error', async () => {
     const session = await makeSession(SECONDARY_BASE_CONFIG);
     try {
-      expect(() => session.setSecondaryModel({ model: 'missing-model' })).toThrow(
-        /\[secondary_model\]\.model/,
-      );
+      expect(() =>
+        session.setSecondaryModelConfig({
+          ...SECONDARY_BASE_CONFIG,
+          secondaryModel: { model: 'missing-model' },
+        }),
+      ).toThrow(/\[secondary_model\]\.model/);
       expect(session.kimiConfig?.secondaryModel).toBeUndefined();
+    } finally {
+      await session.close();
+    }
+  });
+
+  it('rejects when the complete config has no persisted secondary recipe', async () => {
+    const session = await makeSession(SECONDARY_BASE_CONFIG);
+    try {
+      expect(() => session.setSecondaryModelConfig(SECONDARY_BASE_CONFIG)).toThrow(/persist/);
     } finally {
       await session.close();
     }
@@ -813,21 +857,7 @@ describe('Session.setSecondaryModel', () => {
   it('rejects when the session has no config', async () => {
     const session = await makeSession();
     try {
-      expect(() => session.setSecondaryModel({ model: MOCK_PROVIDER.model })).toThrow(/no config/);
-    } finally {
-      await session.close();
-    }
-  });
-
-  it('routes the RPC payload through SessionAPIImpl', async () => {
-    const session = await makeSession(SECONDARY_BASE_CONFIG);
-    try {
-      const api = new SessionAPIImpl(session);
-      await api.setSecondaryModel({ model: MOCK_PROVIDER.model, defaultEffort: 'low' });
-      expect(session.kimiConfig?.secondaryModel).toEqual({
-        model: MOCK_PROVIDER.model,
-        defaultEffort: 'low',
-      });
+      expect(() => session.setSecondaryModelConfig(SECONDARY_POINTER_CONFIG)).toThrow(/no config/);
     } finally {
       await session.close();
     }

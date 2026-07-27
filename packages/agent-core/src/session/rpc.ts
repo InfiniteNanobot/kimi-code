@@ -28,7 +28,6 @@ import type {
   SetActiveToolsPayload,
   SetModelPayload,
   SetPermissionPayload,
-  SetSecondaryModelPayload,
   SetThinkingPayload,
   SkillSummary,
   PluginCommandDef,
@@ -107,10 +106,6 @@ export class SessionAPIImpl implements PromisableMethods<SessionAPI> {
 
   getSessionWarnings(_payload: EmptyPayload): Promise<readonly SessionWarning[]> {
     return this.session.getSessionWarnings();
-  }
-
-  setSecondaryModel(payload: SetSecondaryModelPayload): void {
-    this.session.setSecondaryModel({ model: payload.model, defaultEffort: payload.defaultEffort });
   }
 
   waitForBackgroundTasksOnPrint(_payload: EmptyPayload): Promise<void> {

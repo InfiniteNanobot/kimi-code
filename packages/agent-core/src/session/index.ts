@@ -23,7 +23,6 @@ import {
   resolveWorkspaceAdditionalDirs,
   resolveConfigValue,
   type BackgroundConfig,
-  type SecondaryModelConfig,
   type WorkspaceAdditionalDirsLoadResult,
 } from '../config';
 import { makeErrorPayload } from '../errors';
@@ -52,7 +51,6 @@ import {
   wrapSubagentModelError,
 } from './subagent-binding';
 import {
-  applySecondaryModelConfig,
   SECONDARY_DERIVED_MODEL_ALIAS,
   secondaryModelPatch,
 } from '../config/secondary-model';
@@ -240,7 +238,7 @@ export class Session {
   private printSteerTurns = 0;
   /**
    * The session's live config snapshot. Initialized from `options.config`;
-   * updated in place by {@link setSecondaryModel} so mid-session secondary-model
+   * updated in place by {@link setSecondaryModelConfig} so mid-session secondary-model
    * switches reach the spawn-binding and tool-description readers without
    * recreating the session.
    */
@@ -799,16 +797,17 @@ export class Session {
   }
 
   /**
-   * Live-apply a new `[secondary_model]` recipe to this session: the spawn
+   * Live-apply the core's fully resolved secondary-model config after a
+   * `[secondary_model]` change: the spawn
    * binding (`subagent-host`), the startup-warning computation, and every live
    * agent's `kimiConfig` (tool descriptions, loop control) all read the
    * session snapshot, so a mid-session `/secondary_model` switch takes effect
-   * for the next subagent spawn without recreating the session. The recipe is
-   * expected to be persisted (and the core config reloaded) BEFORE this call —
-   * the provider manager resolves the pointed alias (and the synthesized
-   * derived entry, when patch fields exist) against the core config.
+   * for the next subagent spawn without recreating the session. The core owns
+   * config reload, environment overlays, and derived-model synthesis. Copying
+   * that complete recipe and its model entries keeps spawn binding and provider
+   * resolution aligned without live-applying unrelated session settings.
    */
-  setSecondaryModel(secondary: SecondaryModelConfig): void {
+  setSecondaryModelConfig(config: KimiConfig): void {
     const base = this.runtimeConfig;
     if (base === undefined) {
       throw new KimiError(
@@ -816,16 +815,25 @@ export class Session {
         'Cannot set the secondary model: the session has no config.',
       );
     }
-    if (secondary.model !== undefined) {
-      try {
-        this.options.providerManager?.resolveProviderConfig(secondary.model);
-      } catch (error) {
-        throw wrapSubagentModelError(error, secondary.model, undefined);
-      }
+    const secondary = config.secondaryModel;
+    if (secondary?.model === undefined) {
+      throw new KimiError(
+        ErrorCodes.CONFIG_INVALID,
+        'Cannot set the secondary model: persist its recipe before applying it to a session.',
+      );
+    }
+    try {
+      this.options.providerManager?.resolveProviderConfig(secondary.model);
+    } catch (error) {
+      throw wrapSubagentModelError(error, secondary.model, undefined);
     }
     const models = { ...base.models };
     delete models[SECONDARY_DERIVED_MODEL_ALIAS];
-    const next = applySecondaryModelConfig({ ...base, models, secondaryModel: secondary });
+    const pointedModel = config.models?.[secondary.model];
+    if (pointedModel !== undefined) models[secondary.model] = pointedModel;
+    const derivedModel = config.models?.[SECONDARY_DERIVED_MODEL_ALIAS];
+    if (derivedModel !== undefined) models[SECONDARY_DERIVED_MODEL_ALIAS] = derivedModel;
+    const next = { ...base, models, secondaryModel: secondary };
     this.runtimeConfig = next;
     this.secondaryModelWarnings = undefined;
     for (const [, entry] of this.agents) {

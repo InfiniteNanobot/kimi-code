@@ -1077,12 +1077,13 @@ export class KimiCore implements PromisableMethods<CoreAPI> {
     return this.sessionApi(sessionId).getSessionWarnings(payload);
   }
 
-  setSecondaryModel({ sessionId, ...payload }: SessionScopedPayload<SetSecondaryModelPayload>): void {
-    // Pick up the just-persisted `[secondary_model]` recipe (and its
-    // synthesized derived entry) so the session's provider manager can
-    // resolve the pointed alias — same ordering as `setModel`.
-    this.reloadProviderManager();
-    this.sessionApi(sessionId).setSecondaryModel(payload);
+  setSecondaryModel({ sessionId }: SessionScopedPayload<SetSecondaryModelPayload>): void {
+    // Apply the same fully resolved snapshot the provider manager reads. In
+    // particular, keep every persisted recipe patch and the synthesized
+    // `__secondary__` entry instead of reconstructing the recipe from the
+    // model/default-effort RPC projection.
+    const config = this.withPrintModeDefaults(this.reloadProviderManager());
+    this.requireSession(sessionId).setSecondaryModelConfig(config);
   }
 
   waitForBackgroundTasksOnPrint({ sessionId, ...payload }: SessionScopedPayload<EmptyPayload>): Promise<void> {
