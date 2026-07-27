@@ -1,3 +1,9 @@
+/**
+ * Scenario: Agent builtin-tool behavior and the tool contract exposed to the LLM.
+ * Responsibilities: active-tool policy, tool execution, and observable descriptions/schemas.
+ * Wiring: real Agent and ToolManager with only process/model/subagent boundaries stubbed.
+ * Run: cd packages/agent-core && ../../node_modules/.bin/vitest run test/agent/tool.test.ts
+ */
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -361,6 +367,52 @@ describe('Agent tools', () => {
     ctx.configure({ tools: ['AgentSwarm'] });
 
     expect(ctx.agent.tools.loopTools.some((tool) => tool.name === 'AgentSwarm')).toBe(true);
+  });
+
+  it('shows the model preference for a subagent type when the experiment is enabled', () => {
+    const subagentHost = {
+      delegatableSubagents: vi.fn(() => ({
+        coder: {
+          name: 'coder',
+          description: 'General coding.',
+          systemPrompt: () => 'coder prompt',
+          tools: ['Read'],
+          modelPreference: 'primary' as const,
+        },
+      })),
+    } as unknown as SessionSubagentHost;
+    const ctx = testAgent({
+      subagentHost,
+      experimentalFlags: new FlagResolver({}, FLAG_DEFINITIONS, { 'secondary-model': true }),
+    });
+    ctx.configure({ tools: ['Agent'] });
+
+    const description = ctx.agent.tools.loopTools.find((tool) => tool.name === 'Agent')?.description;
+
+    expect(description).toContain('- coder: General coding.\n  Model preference: primary');
+  });
+
+  it('hides model preferences when the experiment is disabled', () => {
+    const subagentHost = {
+      delegatableSubagents: vi.fn(() => ({
+        coder: {
+          name: 'coder',
+          description: 'General coding.',
+          systemPrompt: () => 'coder prompt',
+          tools: ['Read'],
+          modelPreference: 'primary' as const,
+        },
+      })),
+    } as unknown as SessionSubagentHost;
+    const ctx = testAgent({
+      subagentHost,
+      experimentalFlags: new FlagResolver({}, FLAG_DEFINITIONS),
+    });
+    ctx.configure({ tools: ['Agent'] });
+
+    const description = ctx.agent.tools.loopTools.find((tool) => tool.name === 'Agent')?.description;
+
+    expect(description).not.toContain('Model preference:');
   });
 
   it('self-heals the builtin tool table when the provider becomes resolvable after construction', () => {

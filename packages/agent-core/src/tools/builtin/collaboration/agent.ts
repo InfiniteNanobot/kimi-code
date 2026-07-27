@@ -123,6 +123,7 @@ export class AgentTool implements BuiltinTool<AgentToolInput> {
       allowBackground?: boolean | undefined;
       subagentTimeoutMs?: number | undefined;
       subagentModelDescription?: string;
+      showModelPreferences?: boolean;
     },
   ) {
     const log = options?.log;
@@ -130,7 +131,10 @@ export class AgentTool implements BuiltinTool<AgentToolInput> {
     // `0` is preserved (not normalized): `0 ?? DEFAULT_SUBAGENT_TIMEOUT_MS`
     // stays `0`, and the BackgroundManager arms no timer for it.
     this.subagentTimeoutMs = options?.subagentTimeoutMs;
-    const typeLines = buildSubagentDescriptions(subagents);
+    const typeLines = buildSubagentDescriptions(
+      subagents,
+      options?.showModelPreferences ?? false,
+    );
     const baseDescription = `${AGENT_DESCRIPTION_BASE}\n\n${
       this.allowBackground ? AGENT_BACKGROUND_DESCRIPTION : AGENT_BACKGROUND_DISABLED_DESCRIPTION
     }`;
@@ -386,7 +390,10 @@ function launchErrorMessage(error: unknown, signal: AbortSignal): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-function buildSubagentDescriptions(subagents: ResolvedAgentProfile['subagents']): string {
+function buildSubagentDescriptions(
+  subagents: ResolvedAgentProfile['subagents'],
+  showModelPreferences: boolean,
+): string {
   if (subagents === undefined) return '';
   return Object.entries(subagents)
     .map(([name, subagent]) => {
@@ -399,6 +406,9 @@ function buildSubagentDescriptions(subagents: ResolvedAgentProfile['subagents'])
       );
       const shownTools = subagent.tools.filter((tool) => !deniedExact.has(tool));
       const lines = [header];
+      if (showModelPreferences && subagent.modelPreference !== undefined) {
+        lines.push(`  Model preference: ${subagent.modelPreference}`);
+      }
       if (shownTools.length > 0) lines.push(`  Tools: ${shownTools.join(', ')}`);
       if (subagent.disallowedTools !== undefined && subagent.disallowedTools.length > 0) {
         lines.push(`  Disabled: ${subagent.disallowedTools.join(', ')}`);
