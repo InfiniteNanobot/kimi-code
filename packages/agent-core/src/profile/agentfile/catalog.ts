@@ -26,7 +26,12 @@ import { resolveAgentPath } from './paths';
 import { configuredAgentRoots, projectAgentRoots, userAgentRoots } from './roots';
 import { loadSystemMdDefinition, systemMdProfile } from './system-file';
 import { describeInactiveToolPattern, findInactiveToolPatterns } from './validate';
-import type { AgentFileDefinition, AgentFileSource } from './types';
+import {
+  AgentProfileCatalogSnapshotSchema,
+  type AgentFileDefinition,
+  type AgentFileSource,
+  type AgentProfileCatalogSnapshot,
+} from './types';
 import { promises as fs } from 'node:fs';
 import { parseAgentFileText } from './parser';
 
@@ -71,6 +76,7 @@ interface FileProfileEntry {
 export class SessionAgentProfileCatalog {
   private merged: Map<string, ResolvedAgentProfile>;
   private readonly readyPromise: Promise<void>;
+  private snapshotValue: AgentProfileCatalogSnapshot | undefined;
 
   constructor(private readonly options: SessionAgentCatalogOptions) {
     this.merged = new Map(Object.entries(DEFAULT_AGENT_PROFILES));
@@ -100,6 +106,49 @@ export class SessionAgentProfileCatalog {
 
   list(): readonly ResolvedAgentProfile[] {
     return [...this.merged.values()];
+  }
+
+  snapshot(): AgentProfileCatalogSnapshot | undefined {
+    return this.snapshotValue === undefined
+      ? undefined
+      : AgentProfileCatalogSnapshotSchema.parse(this.snapshotValue);
+  }
+
+  /** Replace live discovery with the file-backed catalog bound at creation. */
+  restoreSnapshot(snapshot: AgentProfileCatalogSnapshot): void {
+    const restored = AgentProfileCatalogSnapshotSchema.parse(snapshot);
+    this.merged = new Map(Object.entries(DEFAULT_AGENT_PROFILES));
+
+    const builtinDefault = this.getDefault();
+    const systemMd =
+      restored.systemPromptTemplate === undefined
+        ? undefined
+        : this.snapshotSystemDefinition(restored.systemPromptTemplate);
+    const effectiveDefault =
+      systemMd === undefined ? builtinDefault : systemMdProfile(systemMd, builtinDefault);
+    const entries: FileProfileEntry[] = [];
+    if (systemMd !== undefined) {
+      entries.push(this.systemMdEntry(systemMd, effectiveDefault));
+    }
+    for (const profile of restored.profiles) {
+      const definition: AgentFileDefinition = {
+        name: profile.name,
+        description: profile.description,
+        whenToUse: profile.whenToUse,
+        override: true,
+        tools: profile.tools,
+        disallowedTools: profile.disallowedTools,
+        subagents: profile.subagents,
+        modelPreference: profile.modelPreference,
+        prompt: profile.prompt,
+        path: `<session-agent-profile:${profile.name}>`,
+        source: 'explicit',
+      };
+      entries.push(this.entryFromDefinition(definition, effectiveDefault));
+    }
+
+    this.applyFileEntries(entries);
+    this.snapshotValue = restored;
   }
 
   /**
@@ -171,7 +220,8 @@ export class SessionAgentProfileCatalog {
       entries.push(this.entryFromDefinition(definition, effectiveDefault));
     }
 
-    this.applyFileEntries(entries);
+    const winners = this.applyFileEntries(entries);
+    this.snapshotValue = this.snapshotFromEntries(winners, systemMd);
   }
 
   /**
@@ -221,7 +271,7 @@ export class SessionAgentProfileCatalog {
     };
   }
 
-  private applyFileEntries(entries: readonly FileProfileEntry[]): void {
+  private applyFileEntries(entries: readonly FileProfileEntry[]): readonly FileProfileEntry[] {
     const warn = this.warn;
     const merged = new Map(this.merged);
     const byName = new Map<string, FileProfileEntry[]>();
@@ -267,6 +317,43 @@ export class SessionAgentProfileCatalog {
     }
 
     this.merged = merged;
+    return winners;
+  }
+
+  private snapshotFromEntries(
+    winners: readonly FileProfileEntry[],
+    systemMd: AgentFileDefinition | undefined,
+  ): AgentProfileCatalogSnapshot | undefined {
+    const profiles = winners
+      .filter((winner) => winner.definition !== systemMd)
+      .map(({ definition, profile }) => ({
+        name: profile.name,
+        description: profile.description ?? definition.description,
+        whenToUse: profile.whenToUse,
+        tools: [...profile.tools],
+        disallowedTools:
+          profile.disallowedTools === undefined ? undefined : [...profile.disallowedTools],
+        subagents: Object.keys(profile.subagents ?? {}),
+        modelPreference: profile.modelPreference,
+        prompt: definition.prompt,
+      }));
+    if (systemMd === undefined && profiles.length === 0) return undefined;
+    return AgentProfileCatalogSnapshotSchema.parse({
+      version: 1,
+      systemPromptTemplate: systemMd?.prompt,
+      profiles,
+    });
+  }
+
+  private snapshotSystemDefinition(prompt: string): AgentFileDefinition {
+    return {
+      name: DEFAULT_AGENT_PROFILE_NAME,
+      description: '',
+      override: true,
+      prompt,
+      path: '<session-agent-profile:SYSTEM.md>',
+      source: 'user',
+    };
   }
 
   private linkSubagentAllowlist(

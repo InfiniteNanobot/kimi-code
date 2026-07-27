@@ -36,11 +36,13 @@ import {
 } from '../mcp';
 import type { EnabledPluginSessionStart, PluginCommandDef } from '../plugin';
 import {
+  AgentProfileCatalogSnapshotSchema,
   DEFAULT_AGENT_PROFILE_NAME,
   DEFAULT_INIT_PROMPT,
   SessionAgentProfileCatalog,
   loadAgentsMd,
   prepareSystemPromptContext,
+  type AgentProfileCatalogSnapshot,
   type ResolvedAgentProfile,
 } from '../profile';
 import type { ProviderManager } from './provider-manager';
@@ -166,6 +168,11 @@ export interface SessionMeta {
   custom: Record<string, any>;
 }
 
+interface PersistedSessionState extends SessionMeta {
+  /** Internal catalog binding; deliberately excluded from public SessionMeta. */
+  readonly agentProfileCatalog?: unknown;
+}
+
 const BACKGROUND_KEEP_ALIVE_ON_EXIT_ENV = 'KIMI_CODE_BACKGROUND_KEEP_ALIVE_ON_EXIT';
 const ACTIVE_TURN_CLOSE_TIMEOUT_MS = 8_000;
 
@@ -222,6 +229,7 @@ export class Session {
     custom: {},
   };
   private writeMetadataPromise = Promise.resolve();
+  private agentProfileSnapshot: AgentProfileCatalogSnapshot | undefined;
   private agentsMdWarning: string | undefined;
   private printSteerDeadline: number | undefined;
   private printSteerTurns = 0;
@@ -382,6 +390,7 @@ export class Session {
     // profile so a fatal agentfile source surfaces here, and so `--agent`
     // sees file-defined profiles.
     await this.skillsReady;
+    this.agentProfileSnapshot = this.agentCatalog.snapshot();
     const profileName = this.options.agents?.profileName;
     const profile =
       profileName === undefined
@@ -939,7 +948,14 @@ export class Session {
   }
 
   writeMetadata() {
-    const text = JSON.stringify(this.metadata, null, 2);
+    const text = JSON.stringify(
+      {
+        ...this.metadata,
+        agentProfileCatalog: this.agentProfileSnapshot,
+      },
+      null,
+      2,
+    );
     const write = async () => {
       await this.persistenceKaos.mkdir(this.options.homedir, { parents: true, existOk: true });
       await this.persistenceKaos.writeText(this.metadataPath, text);
@@ -950,7 +966,20 @@ export class Session {
 
   async readMetadata() {
     const text = await this.persistenceKaos.readText(this.metadataPath);
-    this.metadata = JSON.parse(text);
+    const persisted = JSON.parse(text) as PersistedSessionState;
+    const { agentProfileCatalog, ...metadata } = persisted;
+    this.metadata = metadata;
+    if (agentProfileCatalog !== undefined) {
+      const parsed = AgentProfileCatalogSnapshotSchema.safeParse(agentProfileCatalog);
+      if (parsed.success) {
+        this.agentProfileSnapshot = parsed.data;
+        this.agentCatalog.restoreSnapshot(parsed.data);
+      } else {
+        this.log.warn('stored agent profile catalog is invalid; using discovered profiles', {
+          error: parsed.error.message,
+        });
+      }
+    }
     return this.metadata;
   }
 

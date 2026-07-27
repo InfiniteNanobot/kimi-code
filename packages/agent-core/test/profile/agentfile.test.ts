@@ -625,19 +625,28 @@ describe('Session agentfile wiring', () => {
     }
   });
 
-  it('keeps the bound delegation allowlist when its agent file is removed before resume', async () => {
+  it('restores a bound custom subagent when its agent files are removed before resume', async () => {
     const workDir = await makeTempDir();
     const sessionDir = await makeTempDir();
     const brandHome = await makeTempDir();
     const osHome = await makeTempDir();
-    const agentDir = join(workDir, '.kimi-code', 'agents');
-    const agentPath = join(agentDir, 'leader.md');
+    const agentDir = await makeTempDir();
+    const leaderPath = join(agentDir, 'leader.md');
+    const workerPath = join(agentDir, 'worker.md');
     await mkdir(agentDir, { recursive: true });
     await writeFile(
-      agentPath,
+      leaderPath,
       agentFileText(
-        { name: 'leader', description: 'Delegates read-only work.', subagents: ['explore'] },
-        'Delegate repository exploration only.',
+        { name: 'leader', description: 'Delegates focused work.', subagents: ['worker'] },
+        'Delegate repository work only.',
+      ),
+      'utf-8',
+    );
+    await writeFile(
+      workerPath,
+      agentFileText(
+        { name: 'worker', description: 'Performs focused work.', tools: ['Read'] },
+        'Perform the delegated work.',
       ),
       'utf-8',
     );
@@ -649,7 +658,11 @@ describe('Session agentfile wiring', () => {
       kimiHomeDir: brandHome,
       rpc: createSessionRpc(),
       providerManager: testProviderManager(),
-      agents: { userHomeDir: osHome, profileName: 'leader' },
+      agents: {
+        userHomeDir: osHome,
+        profileName: 'leader',
+        explicitFiles: [leaderPath, workerPath],
+      },
     };
     const created = new Session(options);
     try {
@@ -658,7 +671,7 @@ describe('Session agentfile wiring', () => {
       await created.closeForReload();
     }
 
-    await unlink(agentPath);
+    await Promise.all([unlink(leaderPath), unlink(workerPath)]);
 
     const resumed = new Session({
       ...options,
@@ -668,11 +681,13 @@ describe('Session agentfile wiring', () => {
     try {
       await resumed.resume();
       const main = await resumed.ensureAgentResumed('main');
-      const delegatableNames = Object.keys(
-        main.subagentHost!.delegatableSubagents(main.config.profileName),
-      );
+      const worker = main.subagentHost!.delegatableSubagents(main.config.profileName)['worker'];
 
-      expect(delegatableNames).toEqual(['explore']);
+      expect(worker).toMatchObject({
+        name: 'worker',
+        description: 'Performs focused work.',
+        tools: ['Read'],
+      });
     } finally {
       await resumed.close();
     }
