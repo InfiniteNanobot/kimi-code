@@ -9,6 +9,7 @@ import {
   agentSwarmDescriptionFromArgs,
   agentSwarmGridHeightForTerminalRows,
 } from '../components/messages/agent-swarm-progress';
+import { modelDisplayName } from '../components/dialogs/model-selector';
 import { MAIN_AGENT_ID } from '../constant/kimi-tui';
 import type {
   BackgroundAgentMetadata,
@@ -125,6 +126,14 @@ export class SubAgentEventHandler {
       toolCall.updateSubagentMetrics({
         contextTokens: event.contextTokens,
         usage: totalUsage,
+        // The bound model alias rides every child status update (emitted right
+        // after spawn); surface it on the subagent card. `modelDisplayName`
+        // falls back to the alias itself when the entry is unknown (e.g. the
+        // synthesized `__secondary__` derived entry is missing).
+        modelDisplay:
+          event.model === undefined
+            ? undefined
+            : modelDisplayName(event.model, this.host.state.appState.availableModels[event.model]),
       });
     }
     return true;
