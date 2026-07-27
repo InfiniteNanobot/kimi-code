@@ -785,9 +785,9 @@ export class ToolManager {
       this.agent.skills?.registry.getSkillRoots() ?? [],
     );
     const allowBackground =
-      this.enabledTools.has('TaskList') &&
-      this.enabledTools.has('TaskOutput') &&
-      this.enabledTools.has('TaskStop');
+      this.isExactToolEnabled('TaskList') &&
+      this.isExactToolEnabled('TaskOutput') &&
+      this.isExactToolEnabled('TaskStop');
     const goalToolsEnabled = this.agent.type === 'main';
     this.builtinTools = new Map(
       [

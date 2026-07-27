@@ -435,9 +435,10 @@ export class Agent {
     profile: ResolvedAgentProfile,
     context?: PreparedSystemPromptContext,
     brandHome?: string,
+    subagentNames?: readonly string[],
   ): void {
     this.setActiveProfile(profile, brandHome);
-    this.updateSystemPromptFromProfile(profile, context);
+    this.updateSystemPromptFromProfile(profile, context, subagentNames);
     this.tools.setActiveTools(profile.tools, profile.disallowedTools);
   }
 
@@ -465,6 +466,7 @@ export class Agent {
   private updateSystemPromptFromProfile(
     profile: ResolvedAgentProfile,
     context?: PreparedSystemPromptContext,
+    subagentNames?: readonly string[],
   ): void {
     const systemPrompt = profile.systemPrompt({
       osEnv: this.kaos.osEnv,
@@ -474,7 +476,7 @@ export class Agent {
       agentsMd: context?.agentsMd,
       additionalDirsInfo: context?.additionalDirsInfo,
     });
-    this.config.update({ profileName: profile.name, systemPrompt });
+    this.config.update({ profileName: profile.name, systemPrompt, subagentNames });
   }
 
   async resume(options?: AgentRecordsReplayOptions): Promise<{ warning?: string }> {

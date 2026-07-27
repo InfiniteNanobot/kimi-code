@@ -36,6 +36,7 @@ import {
 } from '../mcp';
 import type { EnabledPluginSessionStart, PluginCommandDef } from '../plugin';
 import {
+  DEFAULT_AGENT_PROFILE_NAME,
   DEFAULT_INIT_PROMPT,
   SessionAgentProfileCatalog,
   loadAgentsMd,
@@ -443,6 +444,17 @@ export class Session {
     return { warning };
   }
 
+  async assertMainProfileSelection(requestedProfileName: string | undefined): Promise<void> {
+    if (requestedProfileName === undefined) return;
+    const main = await this.ensureAgentResumed('main');
+    const currentProfileName = main.config.profileName ?? DEFAULT_AGENT_PROFILE_NAME;
+    if (currentProfileName === requestedProfileName) return;
+    throw new KimiError(
+      ErrorCodes.REQUEST_INVALID,
+      `agent is already bound to profile "${currentProfileName}"; cannot switch to "${requestedProfileName}" in this session`,
+    );
+  }
+
   async close(): Promise<void> {
     try {
       await Promise.allSettled(
@@ -740,7 +752,8 @@ export class Session {
       this.options.kimiHomeDir,
       { additionalDirs: this.additionalDirs },
     );
-    agent.useProfile(profile, context, this.options.kimiHomeDir);
+    const subagentNames = Object.keys(this.agentCatalog.delegatableSubagents(profile.name));
+    agent.useProfile(profile, context, this.options.kimiHomeDir, subagentNames);
     const { agentsMdWarning } = context;
     if (agentsMdWarning !== undefined) {
       this.agentsMdWarning = agentsMdWarning;
@@ -1041,6 +1054,8 @@ export class Session {
     const parentAgent = parentAgentId !== null ? this.getReadyAgent(parentAgentId) : undefined;
     const cwd = parentAgent?.config.cwd ?? this.toolKaos.getcwd();
     let agent!: Agent;
+    const subagentHost =
+      config.subagentHost ?? new SessionSubagentHost(this, id, () => agent);
     agent = new Agent({
       ...config,
       type,
@@ -1055,7 +1070,7 @@ export class Session {
       rpc: proxyWithExtraPayload(this.rpc, { agentId: id }),
       modelProvider: this.options.providerManager,
       hookEngine: config.hookEngine ?? this.hookEngine,
-      subagentHost: config.subagentHost ?? new SessionSubagentHost(this, id),
+      subagentHost,
       mcp: this.mcp,
       permission: this.permissionOptions(parentAgentId, config.permission),
       telemetry: withTelemetryProperties(this.telemetry, { agent_id: id }),

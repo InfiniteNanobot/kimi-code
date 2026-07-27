@@ -45,6 +45,7 @@ describe('secondaryModelPatch', () => {
     expect(secondaryModelPatch(undefined)).toBeUndefined();
     expect(secondaryModelPatch({})).toBeUndefined();
     expect(secondaryModelPatch({ model: 'cheap' })).toBeUndefined();
+    expect(secondaryModelPatch({ model: 'cheap', defaultEffort: undefined })).toBeUndefined();
   });
 
   it('returns every field except model as the patch', () => {

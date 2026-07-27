@@ -2,4 +2,4 @@
 "@moonshot-ai/kimi-code-sdk": patch
 ---
 
-Add optional `agentProfile` and `agentFiles` fields to session creation options for selecting a custom main-agent profile.
+Add SDK session profile selection for creation and validate the bound profile when resuming a session.

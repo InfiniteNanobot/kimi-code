@@ -1887,7 +1887,7 @@ function profile(input: {
   readonly systemPrompt: string;
   readonly description?: string | undefined;
   readonly subagents?: Record<string, ResolvedAgentProfile> | undefined;
-  readonly modelPreference?: 'primary' | 'secondary' | undefined;
+  readonly modelPreference?: 'primary' | 'secondary';
 }): ResolvedAgentProfile {
   return {
     name: input.name,

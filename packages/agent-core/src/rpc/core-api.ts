@@ -64,9 +64,9 @@ export interface CreateSessionPayload {
   readonly client?: ClientTelemetryInfo | undefined;
   readonly drainAgentTasksOnStop?: boolean;
   /** Main-agent profile name (`--agent`): a builtin or agentfile-defined profile. */
-  readonly agentProfile?: string | undefined;
+  readonly agentProfile?: string;
   /** Explicit agentfiles (`--agent-file`); an invalid file fails session creation. */
-  readonly agentFiles?: readonly string[] | undefined;
+  readonly agentFiles?: readonly string[];
 }
 
 export interface CloseSessionPayload {
@@ -85,6 +85,8 @@ export interface ResumeSessionPayload {
   readonly sessionId: string;
   readonly mcpServers?: Readonly<Record<string, McpServerConfig>>;
   readonly additionalDirs?: readonly string[];
+  /** Re-select the session's already-bound main profile; a different name fails. */
+  readonly agentProfile?: string;
   /** Include persisted subagent states in the returned replay snapshot. */
   readonly includeSubagents?: boolean;
   /**

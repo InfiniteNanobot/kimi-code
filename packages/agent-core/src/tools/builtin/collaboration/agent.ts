@@ -122,7 +122,7 @@ export class AgentTool implements BuiltinTool<AgentToolInput> {
       log?: Logger;
       allowBackground?: boolean | undefined;
       subagentTimeoutMs?: number | undefined;
-      subagentModelDescription?: string | undefined;
+      subagentModelDescription?: string;
     },
   ) {
     const log = options?.log;

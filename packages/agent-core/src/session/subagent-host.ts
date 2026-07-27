@@ -139,6 +139,8 @@ type SubagentCompletion = {
   readonly usage?: TokenUsage;
 };
 
+type OwnerAgentResolver = () => Agent;
+
 export type SubagentHandle = {
   readonly agentId: string;
   readonly profileName: string;
@@ -158,6 +160,7 @@ export class SessionSubagentHost {
   constructor(
     private readonly session: Session,
     private readonly ownerAgentId: string,
+    private readonly getOwnerAgent?: OwnerAgentResolver,
   ) {}
 
   async spawn(options: SpawnSubagentOptions): Promise<SubagentHandle> {
@@ -319,9 +322,10 @@ export class SessionSubagentHost {
   }
 
   private resolveProfile(parent: Agent, profileName: string): ResolvedAgentProfile {
-    const profile = this.session.agentCatalog.delegatableSubagents(parent.config.profileName)[
-      profileName
-    ];
+    const profile = this.resolveDelegatableSubagents(
+      parent.config.profileName,
+      parent.config.subagentNames,
+    )[profileName];
     if (profile === undefined) {
       throw new Error(`Subagent profile "${profileName}" was not found`);
     }
@@ -334,7 +338,23 @@ export class SessionSubagentHost {
    * "Available agent types" description.
    */
   delegatableSubagents(callerProfileName?: string): Record<string, ResolvedAgentProfile> {
-    return this.session.agentCatalog.delegatableSubagents(callerProfileName);
+    const owner = this.getOwnerAgent?.() ?? this.session.getReadyAgent(this.ownerAgentId);
+    return this.resolveDelegatableSubagents(callerProfileName, owner?.config.subagentNames);
+  }
+
+  private resolveDelegatableSubagents(
+    callerProfileName: string | undefined,
+    persistedNames: readonly string[] | undefined,
+  ): Record<string, ResolvedAgentProfile> {
+    const catalogProfiles = this.session.agentCatalog.delegatableSubagents(callerProfileName);
+    if (persistedNames === undefined) return catalogProfiles;
+
+    return Object.fromEntries(
+      persistedNames.flatMap((name) => {
+        const profile = catalogProfiles[name];
+        return profile === undefined ? [] : [[name, profile]];
+      }),
+    );
   }
 
   private runWithActiveChild(
@@ -426,9 +446,7 @@ export class SessionSubagentHost {
     child.config.update({
       cwd: parent.config.cwd,
       modelAlias: binding.modelAlias,
-      ...(binding.thinkingEffort !== undefined
-        ? { thinkingEffort: binding.thinkingEffort }
-        : {}),
+      thinkingEffort: binding.thinkingEffort,
     });
 
     const context = await prepareSystemPromptContext(
@@ -436,7 +454,10 @@ export class SessionSubagentHost {
       this.session.options.kimiHomeDir,
       { additionalDirs: child.getAdditionalDirs() },
     );
-    child.useProfile(profile, context, this.session.options.kimiHomeDir);
+    const subagentNames = Object.keys(
+      this.session.agentCatalog.delegatableSubagents(profile.name),
+    );
+    child.useProfile(profile, context, this.session.options.kimiHomeDir, subagentNames);
     child.tools.inheritUserTools(parent.tools);
   }
 

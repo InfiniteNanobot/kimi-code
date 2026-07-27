@@ -45,7 +45,10 @@ export function secondaryModelPatch(
   secondary: SecondaryModelConfig | undefined,
 ): ModelAliasOverrides | undefined {
   if (secondary === undefined) return undefined;
-  const { model: _model, ...patch } = secondary;
+  const { model: _model, ...rawPatch } = secondary;
+  const patch = Object.fromEntries(
+    Object.entries(rawPatch).filter(([, value]) => value !== undefined),
+  ) as ModelAliasOverrides;
   return Object.keys(patch).length > 0 ? patch : undefined;
 }
 
@@ -63,8 +66,8 @@ export function applySecondaryModelConfig(config: KimiConfig, env: Env = process
   if (envModel !== undefined || envEffort !== undefined) {
     secondary = {
       ...secondary,
-      ...(envModel !== undefined ? { model: envModel } : {}),
-      ...(envEffort !== undefined ? { defaultEffort: envEffort } : {}),
+      model: envModel ?? secondary?.model,
+      defaultEffort: envEffort ?? secondary?.defaultEffort,
     };
   }
 

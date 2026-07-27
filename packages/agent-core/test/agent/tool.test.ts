@@ -260,6 +260,66 @@ describe('Agent tools', () => {
     expect(managedBash!.description).toContain('run_in_background=true');
   });
 
+  it('disables Bash background mode when an active task management tool is denied', async () => {
+    const ctx = testAgent();
+    ctx.configure();
+    ctx.agent.tools.setActiveTools(
+      ['Bash', 'TaskList', 'TaskOutput', 'TaskStop'],
+      ['TaskOutput'],
+    );
+
+    const bash = ctx.agent.tools.loopTools.find((tool) => tool.name === 'Bash');
+    expect(bash).toBeDefined();
+    expect(bash!.description).toContain('Background execution is disabled for this agent.');
+    await expect(
+      executeTool(bash!, {
+        turnId: '0',
+        toolCallId: 'call_bash',
+        args: { command: 'sleep 10', run_in_background: true, description: 'watch' },
+        signal,
+      }),
+    ).resolves.toMatchObject({
+      isError: true,
+      output:
+        'Background execution is not available for this agent because TaskOutput and TaskStop are not enabled.',
+    });
+  });
+
+  it('disables Agent background mode when an active task management tool is denied', async () => {
+    const subagentHost = {
+      delegatableSubagents: vi.fn(() => ({})),
+      spawn: vi.fn(),
+    } as unknown as SessionSubagentHost;
+    const ctx = testAgent({ subagentHost });
+    ctx.configure();
+    ctx.agent.tools.setActiveTools(
+      ['Agent', 'TaskList', 'TaskOutput', 'TaskStop'],
+      ['TaskStop'],
+    );
+
+    const agent = ctx.agent.tools.loopTools.find((tool) => tool.name === 'Agent');
+    expect(agent).toBeDefined();
+    expect(agent!.description).toContain('Background agent execution is disabled for this agent.');
+    await expect(
+      executeTool(agent!, {
+        turnId: '0',
+        toolCallId: 'call_agent',
+        args: {
+          prompt: 'Investigate deeply',
+          description: 'Investigate deeply',
+          subagent_type: 'coder',
+          run_in_background: true,
+        },
+        signal,
+      }),
+    ).resolves.toMatchObject({
+      isError: true,
+      output:
+        'Background agent execution is not available for this agent because TaskList, TaskOutput, and TaskStop are not enabled.',
+    });
+    expect(subagentHost.spawn).not.toHaveBeenCalled();
+  });
+
   it('removes denied exact tool names from the active set', () => {
     const ctx = testAgent();
     ctx.configure();

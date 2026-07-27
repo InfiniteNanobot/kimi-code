@@ -1,3 +1,6 @@
+import { readFile } from 'node:fs/promises';
+import { homedir } from 'node:os';
+
 import {
   setCrashPhase,
   setTelemetryContext,
@@ -9,6 +12,8 @@ import chalk from 'chalk';
 import {
   createKimiHarness,
   log,
+  parseAgentFileText,
+  resolveAgentPath,
   type Event,
   type GoalSnapshot,
   type SessionStatus,
@@ -296,6 +301,8 @@ async function resolvePromptSession(
   stderr: PromptOutput,
   setRestorePermission: (restorePermission: () => Promise<void>) => void,
 ): Promise<ResolvedPromptSession> {
+  const agentProfile = await resolveAgentProfileSelection(opts, workDir);
+
   if (opts.session !== undefined) {
     const sessions = await harness.listSessions({ sessionId: opts.session, workDir });
     const target = sessions[0];
@@ -316,6 +323,7 @@ async function resolvePromptSession(
     const session = await harness.resumeSession({
       id: opts.session,
       additionalDirs: opts.addDirs?.length ? opts.addDirs : undefined,
+      agentProfile,
     });
     const status = await session.getStatus();
     const restorePermission = await forcePromptPermission(
@@ -343,6 +351,7 @@ async function resolvePromptSession(
       const session = await harness.resumeSession({
         id: previous.id,
         additionalDirs: opts.addDirs?.length ? opts.addDirs : undefined,
+        agentProfile,
       });
       const status = await session.getStatus();
       const restorePermission = await forcePromptPermission(
@@ -371,7 +380,7 @@ async function resolvePromptSession(
     model,
     permission: 'auto',
     additionalDirs: opts.addDirs?.length ? opts.addDirs : undefined,
-    agentProfile: opts.agent,
+    agentProfile,
     agentFiles: opts.agentFiles?.length ? opts.agentFiles : undefined,
     drainAgentTasksOnStop: true,
   });
@@ -383,6 +392,34 @@ async function resolvePromptSession(
     telemetryModel: model,
     goalModel: model,
   };
+}
+
+async function resolveAgentProfileSelection(
+  opts: CLIOptions,
+  workDir: string,
+): Promise<string | undefined> {
+  if (opts.agent !== undefined) return opts.agent;
+  const agentFile = opts.agentFiles?.[0];
+  if (agentFile === undefined) return undefined;
+
+  const path = resolveAgentPath(agentFile, workDir, homedir());
+  let text: string;
+  try {
+    text = await readFile(path, 'utf8');
+  } catch (error) {
+    throw new Error(
+      `Failed to read agent file "${path}": ${error instanceof Error ? error.message : String(error)}`,
+      { cause: error },
+    );
+  }
+  try {
+    return parseAgentFileText({ path, source: 'explicit', text }).name;
+  } catch (error) {
+    throw new Error(
+      `Invalid agent file "${path}": ${error instanceof Error ? error.message : String(error)}`,
+      { cause: error },
+    );
+  }
 }
 
 async function forcePromptPermission(

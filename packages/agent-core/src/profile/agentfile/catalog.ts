@@ -38,7 +38,7 @@ export interface SessionAgentCatalogOptions {
   readonly osHomeDir: string;
   readonly extraDirs?: readonly string[];
   readonly explicitFiles?: readonly string[];
-  readonly warn?: ((message: string, error?: unknown) => void) | undefined;
+  readonly warn?: (message: string, error?: unknown) => void;
 }
 
 const SOURCE_PRIORITY: Readonly<Record<AgentFileSource, number>> = {

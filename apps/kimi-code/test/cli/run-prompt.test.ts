@@ -1,3 +1,14 @@
+/**
+ * Scenario: print-mode session startup and resume routing.
+ * Responsibilities: CLI options are translated into the SDK session contract and output is rendered.
+ * Wiring: the SDK/telemetry/process boundaries are mocked; the print driver is real.
+ * Run: pnpm -C apps/kimi-code exec vitest run test/cli/run-prompt.test.ts
+ */
+
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import type { createKimiDeviceId as createKimiDeviceIdFn } from '@moonshot-ai/kimi-code-oauth';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -280,6 +291,32 @@ describe('runPrompt', () => {
     );
     expect(mocks.shutdownTelemetry).toHaveBeenCalled();
     expect(mocks.harnessClose).toHaveBeenCalled();
+  });
+
+  it('selects the profile declared by an explicit agent file for a fresh v1 session', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'kimi-run-prompt-agent-'));
+    const agentFile = join(dir, 'reviewer.md');
+    await writeFile(
+      agentFile,
+      '---\nname: reviewer\ndescription: Reviews code.\n---\n\nReview the requested change.\n',
+      'utf-8',
+    );
+
+    try {
+      await runPrompt(opts({ agentFiles: [agentFile] }), '1.2.3-test', {
+        stdout: writer(),
+        stderr: writer(),
+      });
+
+      expect(mocks.harnessCreateSession).toHaveBeenCalledWith(
+        expect.objectContaining({
+          agentProfile: 'reviewer',
+          agentFiles: [agentFile],
+        }),
+      );
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 
   it('completes even if harness.close() never resolves (cleanup is time-bounded)', async () => {
@@ -629,6 +666,20 @@ describe('runPrompt', () => {
     expect(mocks.harnessCreateSession).not.toHaveBeenCalled();
   });
 
+  it('forwards the selected agent profile when resuming a concrete v1 session', async () => {
+    await runPrompt(opts({ session: 'ses_existing', agent: 'reviewer' }), '1.2.3-test', {
+      stdout: writer(),
+      stderr: writer(),
+    });
+
+    expect(mocks.harnessResumeSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'ses_existing',
+        agentProfile: 'reviewer',
+      }),
+    );
+  });
+
   it('allows resuming a concrete session when Windows workdir uses backslashes', async () => {
     const cwd = vi.spyOn(process, 'cwd').mockReturnValue(String.raw`C:\Users\kimi\project`);
     mocks.harnessListSessions.mockResolvedValueOnce([
@@ -899,6 +950,20 @@ describe('runPrompt', () => {
       additionalDirs: ['../shared', '/tmp/extra'],
     });
     expect(mocks.harnessCreateSession).not.toHaveBeenCalled();
+  });
+
+  it('forwards the selected agent profile when continuing a previous v1 session', async () => {
+    await runPrompt(opts({ continue: true, agent: 'reviewer' }), '1.2.3-test', {
+      stdout: writer(),
+      stderr: writer(),
+    });
+
+    expect(mocks.harnessResumeSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'ses_previous',
+        agentProfile: 'reviewer',
+      }),
+    );
   });
 
   it('continues a previous session without a configured default model', async () => {

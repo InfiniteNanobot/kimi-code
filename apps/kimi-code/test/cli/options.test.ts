@@ -1,3 +1,10 @@
+/**
+ * Scenario: top-level CLI option parsing, validation, and help discovery.
+ * Responsibilities: accepted arguments map to CLIOptions and invalid combinations fail early.
+ * Wiring: Commander is real; command handlers and output sinks are local test boundaries.
+ * Run: pnpm -C apps/kimi-code exec vitest run test/cli/options.test.ts
+ */
+
 import { describe, expect, it } from 'vitest';
 
 import { createProgram } from '#/cli/commands';
@@ -393,6 +400,16 @@ describe('CLI options parsing', () => {
   });
 
   describe('--agent / --agent-file', () => {
+    it('describes agent selectors as available in print mode on either engine', () => {
+      const help = createProgram('0.1.0-test', () => {}, () => {}).helpInformation();
+      const normalizedHelp = help.replaceAll(/\s+/g, ' ');
+
+      expect(normalizedHelp).toContain(
+        'Agent profile to use for this print-mode invocation on either engine.',
+      );
+      expect(help).not.toContain('v2 engine only');
+    });
+
     it('parses a single --agent', () => {
       const opts = parse(['-p', 'hi', '--agent', 'reviewer']);
       expect(opts.agent).toBe('reviewer');

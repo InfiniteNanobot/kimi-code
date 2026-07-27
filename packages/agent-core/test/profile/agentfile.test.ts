@@ -1,4 +1,11 @@
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+/**
+ * Scenario: Markdown agent parsing, discovery, binding, and session resume.
+ * Responsibilities: file-defined profile identity and policies remain observable across lifecycle changes.
+ * Wiring: the real catalog/session/record store are used with isolated local filesystem fixtures.
+ * Run: pnpm -C packages/agent-core exec vitest run test/profile/agentfile.test.ts
+ */
+
+import { mkdir, mkdtemp, rm, unlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'pathe';
 
@@ -615,6 +622,59 @@ describe('Session agentfile wiring', () => {
       // carries the fatal agentfile error too; production swallows it via
       // core-impl's `session.close().catch(() => {})` cleanup path.
       await session.close().catch(() => {});
+    }
+  });
+
+  it('keeps the bound delegation allowlist when its agent file is removed before resume', async () => {
+    const workDir = await makeTempDir();
+    const sessionDir = await makeTempDir();
+    const brandHome = await makeTempDir();
+    const osHome = await makeTempDir();
+    const agentDir = join(workDir, '.kimi-code', 'agents');
+    const agentPath = join(agentDir, 'leader.md');
+    await mkdir(agentDir, { recursive: true });
+    await writeFile(
+      agentPath,
+      agentFileText(
+        { name: 'leader', description: 'Delegates read-only work.', subagents: ['explore'] },
+        'Delegate repository exploration only.',
+      ),
+      'utf-8',
+    );
+
+    const options = {
+      id: 'test-agentfile-delegation-resume',
+      kaos: testKaos.withCwd(workDir),
+      homedir: sessionDir,
+      kimiHomeDir: brandHome,
+      rpc: createSessionRpc(),
+      providerManager: testProviderManager(),
+      agents: { userHomeDir: osHome, profileName: 'leader' },
+    };
+    const created = new Session(options);
+    try {
+      await created.createMain();
+    } finally {
+      await created.closeForReload();
+    }
+
+    await unlink(agentPath);
+
+    const resumed = new Session({
+      ...options,
+      agents: { userHomeDir: osHome },
+      initializeMainAgent: false,
+    });
+    try {
+      await resumed.resume();
+      const main = await resumed.ensureAgentResumed('main');
+      const delegatableNames = Object.keys(
+        main.subagentHost!.delegatableSubagents(main.config.profileName),
+      );
+
+      expect(delegatableNames).toEqual(['explore']);
+    } finally {
+      await resumed.close();
     }
   });
 });

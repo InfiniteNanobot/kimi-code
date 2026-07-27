@@ -491,6 +491,7 @@ export class KimiCore implements PromisableMethods<CoreAPI> {
     ]);
     const active = this.sessions.get(summary.id);
     if (active !== undefined) {
+      await active.assertMainProfileSelection(input.agentProfile);
       if (overrides.kaos !== undefined) {
         active.setToolKaos(overrides.kaos.withCwd(summary.workDir));
       }
@@ -553,6 +554,7 @@ export class KimiCore implements PromisableMethods<CoreAPI> {
     try {
       const resumeResult = await session.resume();
       warning = resumeResult.warning;
+      await session.assertMainProfileSelection(input.agentProfile);
       await this.refreshSessionRuntimeConfig(session, config);
     } catch (error) {
       await session.close().catch(() => {});

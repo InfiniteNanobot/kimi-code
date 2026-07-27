@@ -16,7 +16,7 @@ interface MergedAgentProfile {
   readonly tools: string[];
   readonly whenToUse?: string | undefined;
   readonly subagents?: Record<string, RawSubagentProfile> | undefined;
-  readonly modelPreference?: AgentModelPreference | undefined;
+  readonly modelPreference?: AgentModelPreference;
 }
 
 /**
