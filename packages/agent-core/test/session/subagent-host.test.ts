@@ -15,6 +15,7 @@ import { SessionAgentProfileCatalog, type ResolvedAgentProfile } from '../../src
 import type { SDKSessionRPC } from '../../src/rpc';
 import { Session } from '../../src/session';
 import { collectGitContext } from '../../src/session/git-context';
+import { ProviderManager } from '../../src/session/provider-manager';
 import {
   DEFAULT_SUBAGENT_TIMEOUT_MS,
   SessionSubagentHost,
@@ -1305,18 +1306,14 @@ describe('SessionSubagentHost', () => {
       parent.configure();
       const child = testAgent();
       child.configure({ tools: ['Read'] });
-      const providerManager = {
-        resolveProviderConfig: vi.fn(() => {
-          throw new KimiError(
-            ErrorCodes.CONFIG_INVALID,
-            'Model "missing-model" is not configured in config.toml.',
-          );
-        }),
-      } as unknown as Session['options']['providerManager'];
+      const config: KimiConfig = {
+        providers: {},
+        secondaryModel: { model: 'missing-model' },
+      };
       const session = fakeSession(parent.agent, child.agent, {}, {
         experimentalFlags: secondaryFlags(),
-        config: { providers: {}, secondaryModel: { model: 'missing-model' } },
-        providerManager,
+        config,
+        providerManager: new ProviderManager({ config }),
       });
       const host = new SessionSubagentHost(session, 'main');
 
@@ -1330,6 +1327,43 @@ describe('SessionSubagentHost', () => {
           signal,
         }).then((handle) => handle.completion),
       ).rejects.toThrow(/\[secondary_model\]\.model/);
+    });
+
+    it('preserves a provider configuration error when the secondary alias exists', async () => {
+      const parent = testAgent();
+      parent.configure();
+      const child = testAgent();
+      child.configure({ tools: ['Read'] });
+      const config: KimiConfig = {
+        providers: {},
+        models: {
+          'cheap-model': {
+            provider: 'missing-provider',
+            model: 'cheap-model',
+            maxContextSize: 1_000_000,
+          },
+        },
+        secondaryModel: { model: 'cheap-model' },
+      };
+      const session = fakeSession(parent.agent, child.agent, {}, {
+        experimentalFlags: secondaryFlags(),
+        config,
+        providerManager: new ProviderManager({ config }),
+      });
+      const host = new SessionSubagentHost(session, 'main');
+
+      await expect(
+        host.spawn({
+          profileName: 'coder',
+          parentToolCallId: 'call_agent',
+          prompt: 'Do work',
+          description: 'Do work',
+          runInBackground: false,
+          signal,
+        }).then((handle) => handle.completion),
+      ).rejects.toMatchObject({
+        message: 'Provider "missing-provider" for model "cheap-model" is not configured.',
+      });
     });
 
     it('keeps the spawned model on resume when the experiment is on', async () => {

@@ -97,6 +97,9 @@ export function wrapSubagentModelError(
 ): unknown {
   if (boundModel === callerModelAlias) return error;
   if (!(error instanceof KimiError) || error.code !== ErrorCodes.CONFIG_INVALID) return error;
+  // ProviderManager tags only the missing-alias failure with details.model;
+  // malformed aliases and providers must keep their own actionable errors.
+  if (error.details?.['model'] !== boundModel) return error;
   const displayModel =
     boundModel === SECONDARY_DERIVED_MODEL_ALIAS
       ? `the derived entry "${SECONDARY_DERIVED_MODEL_ALIAS}"`
