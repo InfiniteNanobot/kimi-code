@@ -121,18 +121,21 @@ disallowedTools:
 
 ### 选择主 Agent
 
-两个 CLI flag 用于选择驱动会话的 Agent。**二者在 print 模式（`kimi -p`）下可用**；交互式 TUI 会以明确错误拒绝它们：
+两个 CLI flag 用于选择驱动新会话的 Agent，在 print 模式（`kimi -p`）和交互式 TUI 中均可使用：
 
 - **`--agent <name>`**：以指定 Agent 作为主 Agent 启动会话。名称可以指向内置 Agent 或任何已发现的文件；名称不存在时会报错，并列出可用的 Agent。
-- **`--agent-file <path>`**：以最高优先级加载一个 Agent 文件（仅本次启动）并以其启动。该 flag 只接受一个文件：不可重复传入，也不能与 `--agent` 同时使用。仅在新建会话时有效——不能与 `--session`/`--continue` 组合，因为文件内容在会话创建时绑定，恢复会话时不会重新应用。
+- **`--agent-file <path>`**：以最高优先级加载一个 Agent 文件（仅本次启动）并以其启动。该 flag 只接受一个文件：不可重复传入，也不能与 `--agent` 同时使用。
 
-例如在 print 模式下：
+两个 flag 都仅在新建会话时有效——都不能与 `--session`/`--continue` 组合。Agent 在会话创建时绑定，恢复会话时会自动还原已绑定的 Agent，因此恢复时不需要（也不允许）携带这些 flag。
+
+例如：
 
 ```sh
+kimi --agent reviewer
 kimi -p --agent reviewer "审查这个分支上的改动"
 ```
 
-绑定的 Agent 即会话的身份：在会话首次绑定后即固定，之后不可切换。重复选择已绑定的 Agent（例如以相同的 `--agent` 恢复会话）是 no-op；选择不同的 Agent 会报 "already bound" 错误。
+绑定的 Agent 即会话的身份：在会话首次绑定后即固定，之后不可切换。在 TUI 中，这些 flag 只绑定启动时的会话；之后在同一进程内新建的会话（例如通过 `/new`）使用默认 Agent。
 
 定制主 Agent 时，在正文中引用 `${base_prompt}` 可保持默认提示词的环境、工作区指令和 Skill 注入生效；不引用 `${base_prompt}` 的正文则完全拥有自己的提示词，适合自包含的子 Agent。
 

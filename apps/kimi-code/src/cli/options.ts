@@ -97,17 +97,12 @@ export function validateOptions(
   if (opts.agent !== undefined && opts.agentFiles.length > 0) {
     throw new OptionConflictError('Cannot combine --agent with --agent-file.');
   }
-  if (opts.agentFiles.length > 0 && (opts.session !== undefined || opts.continue)) {
-    throw new OptionConflictError(
-      'Cannot combine --agent-file with --session/--continue: the agent file is bound at session creation and is not re-applied on resume.',
-    );
-  }
   if (
     (opts.agent !== undefined || opts.agentFiles.length > 0) &&
-    !promptMode
+    (opts.session !== undefined || opts.continue)
   ) {
     throw new OptionConflictError(
-      '--agent/--agent-file are only available in print mode (kimi -p).',
+      'Cannot combine --agent/--agent-file with --session/--continue: the agent is bound at session creation and the bound agent is restored automatically on resume.',
     );
   }
   if (promptMode && opts.session === '') {

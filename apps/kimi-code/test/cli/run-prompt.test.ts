@@ -666,18 +666,15 @@ describe('runPrompt', () => {
     expect(mocks.harnessCreateSession).not.toHaveBeenCalled();
   });
 
-  it('forwards the selected agent profile when resuming a concrete v1 session', async () => {
+  it('does not forward an agent profile when resuming a concrete v1 session', async () => {
+    // validateOptions rejects --agent with --session; runPrompt must not
+    // forward a profile to resume even if a caller hands one over.
     await runPrompt(opts({ session: 'ses_existing', agent: 'reviewer' }), '1.2.3-test', {
       stdout: writer(),
       stderr: writer(),
     });
 
-    expect(mocks.harnessResumeSession).toHaveBeenCalledWith(
-      expect.objectContaining({
-        id: 'ses_existing',
-        agentProfile: 'reviewer',
-      }),
-    );
+    expect(mocks.harnessResumeSession).toHaveBeenCalledWith({ id: 'ses_existing' });
   });
 
   it('allows resuming a concrete session when Windows workdir uses backslashes', async () => {
@@ -952,18 +949,15 @@ describe('runPrompt', () => {
     expect(mocks.harnessCreateSession).not.toHaveBeenCalled();
   });
 
-  it('forwards the selected agent profile when continuing a previous v1 session', async () => {
+  it('does not forward an agent profile when continuing a previous v1 session', async () => {
+    // validateOptions rejects --agent with --continue; runPrompt must not
+    // forward a profile to resume even if a caller hands one over.
     await runPrompt(opts({ continue: true, agent: 'reviewer' }), '1.2.3-test', {
       stdout: writer(),
       stderr: writer(),
     });
 
-    expect(mocks.harnessResumeSession).toHaveBeenCalledWith(
-      expect.objectContaining({
-        id: 'ses_previous',
-        agentProfile: 'reviewer',
-      }),
-    );
+    expect(mocks.harnessResumeSession).toHaveBeenCalledWith({ id: 'ses_previous' });
   });
 
   it('continues a previous session without a configured default model', async () => {

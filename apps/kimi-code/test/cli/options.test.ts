@@ -400,14 +400,12 @@ describe('CLI options parsing', () => {
   });
 
   describe('--agent / --agent-file', () => {
-    it('describes agent selectors as available in print mode on either engine', () => {
+    it('describes agent selectors as new-session-only', () => {
       const help = createProgram('0.1.0-test', () => {}, () => {}).helpInformation();
       const normalizedHelp = help.replaceAll(/\s+/g, ' ');
 
-      expect(normalizedHelp).toContain(
-        'Agent profile to use for this print-mode invocation on either engine.',
-      );
-      expect(help).not.toContain('v2 engine only');
+      expect(normalizedHelp).toContain('Agent profile to start the new session with.');
+      expect(normalizedHelp).not.toContain('print-mode invocation');
     });
 
     it('parses a single --agent', () => {
@@ -458,7 +456,7 @@ describe('CLI options parsing', () => {
       const opts = parse(['-p', 'hi', '--agent-file', 'a.md', '--session', 'ses_123']);
       expect(() => validateOptions(opts)).toThrow(OptionConflictError);
       expect(() => validateOptions(opts)).toThrow(
-        'Cannot combine --agent-file with --session/--continue',
+        'Cannot combine --agent/--agent-file with --session/--continue',
       );
     });
 
@@ -466,13 +464,24 @@ describe('CLI options parsing', () => {
       const opts = parse(['-p', 'hi', '--agent-file', 'a.md', '--continue']);
       expect(() => validateOptions(opts)).toThrow(OptionConflictError);
       expect(() => validateOptions(opts)).toThrow(
-        'Cannot combine --agent-file with --session/--continue',
+        'Cannot combine --agent/--agent-file with --session/--continue',
       );
     });
 
-    it('allows --agent with --session (re-selecting the bound profile)', () => {
+    it('rejects --agent with --session', () => {
       const opts = parse(['-p', 'hi', '--agent', 'reviewer', '--session', 'ses_123']);
-      expect(validateOptions(opts, {}).uiMode).toBe('print');
+      expect(() => validateOptions(opts)).toThrow(OptionConflictError);
+      expect(() => validateOptions(opts)).toThrow(
+        'Cannot combine --agent/--agent-file with --session/--continue',
+      );
+    });
+
+    it('rejects --agent with --continue in shell mode', () => {
+      const opts = parse(['--agent', 'reviewer', '--continue']);
+      expect(() => validateOptions(opts)).toThrow(OptionConflictError);
+      expect(() => validateOptions(opts)).toThrow(
+        'Cannot combine --agent/--agent-file with --session/--continue',
+      );
     });
 
     it('rejects empty agent values', () => {
@@ -487,12 +496,9 @@ describe('CLI options parsing', () => {
       expect(() => validateOptions(opts)).toThrow('Agent file path cannot be empty.');
     });
 
-    it('rejects the flags in shell mode', () => {
-      const opts = parse(['--agent', 'reviewer']);
-      expect(() => validateOptions(opts)).toThrow(OptionConflictError);
-      expect(() => validateOptions(opts)).toThrow(
-        '--agent/--agent-file are only available in print mode (kimi -p).',
-      );
+    it('accepts the flags in shell mode', () => {
+      expect(validateOptions(parse(['--agent', 'reviewer']), {}).uiMode).toBe('shell');
+      expect(validateOptions(parse(['--agent-file', 'a.md']), {}).uiMode).toBe('shell');
     });
 
     it('accepts the flags in prompt mode without the v2 engine flag', () => {
