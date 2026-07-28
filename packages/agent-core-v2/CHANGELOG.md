@@ -1,5 +1,11 @@
 # @moonshot-ai/agent-core-v2
 
+## 0.2.1
+
+### Patch Changes
+
+- [#2144](https://github.com/MoonshotAI/kimi-code/pull/2144) [`a77ee03`](https://github.com/MoonshotAI/kimi-code/commit/a77ee0382965720f7ede523de1f6788bd4422df8) Thanks [@sailist](https://github.com/sailist)! - Let embedding hosts customize the agent's product name and reply-style guidance in the system prompt when starting the server.
+
 ## 0.2.0
 
 ### Minor Changes
