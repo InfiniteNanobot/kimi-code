@@ -32,6 +32,8 @@ function makeHost(options?: {
   readonly withSession?: boolean;
   readonly secondaryModel?: { model: string; defaultEffort?: string };
   readonly persistedModels?: Record<string, ModelAlias>;
+  /** The secondary model the reloaded config carries — env overlays win. */
+  readonly effectiveSecondary?: { model: string; defaultEffort?: string };
 }) {
   const session = options?.withSession === false
     ? undefined
@@ -59,7 +61,11 @@ function makeHost(options?: {
         providers: {},
         secondaryModel: options?.secondaryModel,
       })),
-      setConfig: vi.fn(async () => ({ providers: {}, models: options?.persistedModels })),
+      setConfig: vi.fn(async () => ({
+        providers: {},
+        models: options?.persistedModels,
+        secondaryModel: options?.effectiveSecondary,
+      })),
     },
     session,
     setAppState: vi.fn((patch) => Object.assign(appState, patch)),
@@ -137,6 +143,27 @@ describe('handleSecondaryModelCommand', () => {
       expect(host.showStatus).toHaveBeenCalled();
     });
     expect(host.state.appState.availableModels['__secondary__']?.displayName).toBe('k2');
+  });
+
+  it('warns with the env-overridden effective binding instead of the picked model', async () => {
+    // KIMI_SECONDARY_MODEL / KIMI_SECONDARY_EFFORT win over the persisted
+    // recipe: the reloaded config carries the overlaid values, and the status
+    // message must name them rather than echo the pick.
+    const { host } = makeHost({
+      effectiveSecondary: { model: 'cheap', defaultEffort: 'low' },
+    });
+
+    await handleSecondaryModelCommand(host, '');
+    mountedPicker(host).onSelect({ alias: 'k2', thinking: 'high' });
+
+    await vi.waitFor(() => {
+      expect(host.showStatus).toHaveBeenCalled();
+    });
+    const [message, color] = host.showStatus.mock.calls[0]!;
+    expect(message).toContain('KIMI_SECONDARY_MODEL=cheap');
+    expect(message).toContain('KIMI_SECONDARY_EFFORT=low');
+    expect(color).toBe('warning');
+    expect(host.showError).not.toHaveBeenCalled();
   });
 
   it('keeps the current effective model map when live apply fails', async () => {

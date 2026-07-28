@@ -644,6 +644,30 @@ async function performSecondaryModelSwitch(
     }
   }
   host.setAppState({ availableModels: updatedConfig.models ?? {} });
+  // Report the effective binding from the reloaded config, not the picked
+  // value: KIMI_SECONDARY_MODEL / KIMI_SECONDARY_EFFORT override the recipe at
+  // runtime, and the session binds the overlaid snapshot (mirrors how
+  // /model displays the effective alias read back from the session).
+  const effective = updatedConfig.secondaryModel;
+  const envOverrides: string[] = [];
+  if (effective?.model !== undefined && effective.model !== alias) {
+    envOverrides.push(`KIMI_SECONDARY_MODEL=${effective.model}`);
+  }
+  if (effective?.defaultEffort !== undefined && effective.defaultEffort !== effort) {
+    envOverrides.push(`KIMI_SECONDARY_EFFORT=${effective.defaultEffort}`);
+  }
+  if (envOverrides.length > 0 && effective?.model !== undefined) {
+    const effectiveName = modelDisplayName(
+      effective.model,
+      updatedConfig.models?.[effective.model],
+    );
+    host.showStatus(
+      `Saved ${displayName} as the secondary model, but ${envOverrides.join(' and ')} ` +
+        `overrides it at runtime — subagents bind ${effectiveName} until the env var is unset.`,
+      'warning',
+    );
+    return;
+  }
   host.showStatus(
     host.session === undefined
       ? `Secondary model set to ${displayName} with thinking ${effort}; applies to new sessions.`
