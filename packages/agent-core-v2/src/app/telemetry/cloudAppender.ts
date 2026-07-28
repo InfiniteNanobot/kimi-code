@@ -38,6 +38,13 @@ export interface CloudAppenderOptions {
   readonly uiMode?: string;
   readonly model?: string;
   readonly buildSha?: string;
+  /**
+   * Engine version reported as `core_version`. Defaults to resolving
+   * agent-core-v2's own package.json — which fails to `'unknown'` when the
+   * code is bundled into a host's artifact, so bundled hosts (Electron main)
+   * inject their build-time core version here.
+   */
+  readonly coreVersion?: string;
   readonly terminal?: string;
   readonly locale?: string;
   readonly getAccessToken?: () => string | null | Promise<string | null>;
@@ -57,6 +64,8 @@ export interface CloudAppenderHostOptions {
   readonly uiMode?: string;
   readonly model?: string;
   readonly buildSha?: string;
+  /** See {@link CloudAppenderOptions.coreVersion}. */
+  readonly coreVersion?: string;
   readonly sessionId?: string;
   readonly getAccessToken?: () => string | null | Promise<string | null>;
 }
@@ -188,7 +197,7 @@ function buildContext(options: CloudAppenderOptions): CloudContext {
     app_name: options.appName,
     client_version: bootstrap.clientVersion,
     version: bootstrap.clientVersion,
-    core_version: resolveCoreVersion(),
+    core_version: options.coreVersion ?? resolveCoreVersion(),
     runtime: 'node',
     platform: bootstrap.platform,
     arch: bootstrap.arch,
