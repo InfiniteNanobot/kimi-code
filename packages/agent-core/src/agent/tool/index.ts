@@ -736,10 +736,13 @@ export class ToolManager {
         name: tool.name,
         description: tool.description,
         // select_tools is always registered but only offered while the
-        // disclosure gate is open (see loopTools); report that live state.
+        // disclosure gate is open and the denylist does not name it (see
+        // loopTools); report that live state.
         active:
           this.isExactToolEnabled(tool.name) ||
-          (tool.name === b.SELECT_TOOLS_TOOL_NAME && this.agent.toolSelectEnabled),
+          (tool.name === b.SELECT_TOOLS_TOOL_NAME &&
+            this.agent.toolSelectEnabled &&
+            !this.disabledTools.has(tool.name)),
         source: 'builtin',
       };
     }
@@ -990,7 +993,14 @@ export class ToolManager {
       loadedSet === undefined
         ? enabledMcpNames
         : enabledMcpNames.filter((name) => loadedSet.has(name));
-    const selectToolsName = disclosure ? [b.SELECT_TOOLS_TOOL_NAME] : [];
+    // The disclosure gate decides exposure, but the denylist still wins: a
+    // profile disallowedTools entry naming select_tools keeps it out of the
+    // table (mirrors agent-core-v2 isToolActiveForDisclosure, which applies
+    // the deny layers but not the allowlist to select_tools).
+    const selectToolsName =
+      disclosure && !this.disabledTools.has(b.SELECT_TOOLS_TOOL_NAME)
+        ? [b.SELECT_TOOLS_TOOL_NAME]
+        : [];
     return uniq([...enabledNames, ...selectToolsName, ...mcpNames])
       .toSorted((a, b) => a.localeCompare(b))
       // select_tools is exposed exclusively through the disclosure gate — a
