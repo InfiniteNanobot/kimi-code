@@ -98,9 +98,11 @@ export function applySecondaryModelConfig(config: KimiConfig, env: Env = process
  * mirroring the v2 overlay which strips a user-configured entry under the
  * reserved id all the same), a `default_model` pointer at the derived entry
  * (restored from raw so it cannot dangle after the recipe is removed), and
- * the env-injected recipe fields (restored from raw while the env vars are
- * set, so a `getConfig` -> `setConfig` round-trip cannot persist shell
- * overrides).
+ * the env-injected recipe fields (restored from raw when the value being
+ * written still equals the env value, so a `getConfig` -> `setConfig`
+ * round-trip cannot persist shell overrides, while a genuinely new selection
+ * — e.g. a `/secondary_model` pick made under `KIMI_SECONDARY_MODEL` — does
+ * reach the disk, mirroring the pointer check in `stripEnvModelConfig`).
  */
 export function stripSecondaryModelConfig(
   config: KimiConfig,
@@ -122,16 +124,19 @@ export function stripSecondaryModelConfig(
     };
   }
 
-  const envModelSet = trimmed(env[SECONDARY_MODEL_ENV]) !== undefined;
-  const envEffortSet = trimmed(env[SECONDARY_MODEL_EFFORT_ENV]) !== undefined;
-  if ((envModelSet || envEffortSet) && next.secondaryModel !== undefined) {
+  const envModel = trimmed(env[SECONDARY_MODEL_ENV]);
+  const envEffort = trimmed(env[SECONDARY_MODEL_EFFORT_ENV]);
+  if ((envModel !== undefined || envEffort !== undefined) && next.secondaryModel !== undefined) {
     const raw = isPlainObject(config.raw?.['secondary_model']) ? config.raw['secondary_model'] : {};
     const restored = { ...next.secondaryModel };
-    if (envModelSet) {
+    // Restore from raw only when the value being written still IS the env
+    // value (a round-trip of the overlaid runtime view). A different value is
+    // a deliberate new selection and must persist.
+    if (envModel !== undefined && restored.model === envModel) {
       if (typeof raw['model'] === 'string') restored.model = raw['model'];
       else delete restored.model;
     }
-    if (envEffortSet) {
+    if (envEffort !== undefined && restored.defaultEffort === envEffort) {
       if (typeof raw['default_effort'] === 'string') restored.defaultEffort = raw['default_effort'];
       else delete restored.defaultEffort;
     }

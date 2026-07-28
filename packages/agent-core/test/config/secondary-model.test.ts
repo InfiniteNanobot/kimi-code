@@ -154,6 +154,40 @@ describe('stripSecondaryModelConfig', () => {
     expect(stripped.secondaryModel).toEqual({ model: 'cheap', defaultEffort: 'low' });
   });
 
+  it('keeps a genuinely new selection that differs from the env values', () => {
+    // `/secondary_model` under KIMI_SECONDARY_MODEL: the picked recipe must
+    // reach the disk; only overlay round-trips are restored from raw.
+    const onDisk = parseConfigString(
+      ['[secondary_model]', 'model = "cheap"', 'default_effort = "low"'].join('\n'),
+    );
+    const picked: KimiConfig = {
+      ...onDisk,
+      secondaryModel: { model: 'main', defaultEffort: 'high' },
+    };
+    const stripped = stripSecondaryModelConfig(picked, {
+      KIMI_SECONDARY_MODEL: 'cheap',
+      KIMI_SECONDARY_EFFORT: 'low',
+    });
+    expect(stripped.secondaryModel).toEqual({ model: 'main', defaultEffort: 'high' });
+  });
+
+  it('restores only the fields still carrying the env values', () => {
+    const onDisk = parseConfigString(
+      ['[secondary_model]', 'model = "cheap"', 'default_effort = "low"'].join('\n'),
+    );
+    // The model still carries the env value (restored from raw); the effort
+    // is a new pick (persists).
+    const mixed: KimiConfig = {
+      ...onDisk,
+      secondaryModel: { model: 'main', defaultEffort: 'high' },
+    };
+    const stripped = stripSecondaryModelConfig(mixed, {
+      KIMI_SECONDARY_MODEL: 'main',
+      KIMI_SECONDARY_EFFORT: 'low',
+    });
+    expect(stripped.secondaryModel).toEqual({ model: 'cheap', defaultEffort: 'high' });
+  });
+
   it('keeps file-sourced recipe fields when no env override is active', () => {
     const runtime = configWithSecondary();
     const stripped = stripSecondaryModelConfig(runtime, {});
